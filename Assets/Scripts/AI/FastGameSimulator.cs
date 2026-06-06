@@ -613,6 +613,7 @@ public class FastGameSimulator
                         if (nx < 0 || nx >= bwF || ny < 0 || ny >= bhF)
                         {
                             if (nx == homeEdgeX) continue;
+                            else if (ny < 0 || ny >= bhF) continue;
                             else { surrounded = false; break; }
                         }
                         var neighbor = board.GetPieceAt(new BoardCoord(nx, ny));

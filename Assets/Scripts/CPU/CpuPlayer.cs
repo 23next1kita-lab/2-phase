@@ -561,6 +561,7 @@ public class CpuPlayer : MonoBehaviour
                         if (nx < 0 || nx >= bw || ny < 0 || ny >= bh)
                         {
                             if (nx == homeEdgeX) continue;
+                            else if (ny < 0 || ny >= bh) continue;
                             else { surrounded = false; break; }
                         }
                         var neighbor = gm.BoardState.GetPieceAt(new BoardCoord(nx, ny));
