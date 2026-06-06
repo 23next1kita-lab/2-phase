@@ -482,6 +482,36 @@ public class FastGameSimulator
         if (fastTurnStartPositions != null && fastTurnStartPositions.TryGetValue(piece.pieceId, out var startPos) && target.Equals(startPos))
             score += w.backtrackPenalty;
 
+        if (advance < 0 && turnNumF <= 3)
+            score += w.earlyBacktrackPenalty;
+
+        if (advance > 0)
+        {
+            int fewestAdj = int.MaxValue;
+            foreach (var fp in friendlyPieces)
+            {
+                int adjC = 0;
+                foreach (var fp2 in friendlyPieces)
+                {
+                    if (fp2.pieceId == fp.pieceId) continue;
+                    int dx = Math.Abs(fp.currentPosition.x - fp2.currentPosition.x);
+                    int dy = Math.Abs(fp.currentPosition.y - fp2.currentPosition.y);
+                    if (dx <= 1 && dy <= 1 && (dx != 0 || dy != 0)) adjC++;
+                }
+                if (adjC < fewestAdj) fewestAdj = adjC;
+            }
+            int thisAdj = 0;
+            foreach (var fp in friendlyPieces)
+            {
+                if (fp.pieceId == piece.pieceId) continue;
+                int dx = Math.Abs(piece.currentPosition.x - fp.currentPosition.x);
+                int dy = Math.Abs(piece.currentPosition.y - fp.currentPosition.y);
+                if (dx <= 1 && dy <= 1 && (dx != 0 || dy != 0)) thisAdj++;
+            }
+            if (thisAdj == fewestAdj)
+                score += w.isolatedAdvanceBonus;
+        }
+
         float sumX = 0, sumY = 0;
         foreach (var fp in friendlyPieces) { sumX += fp.currentPosition.x; sumY += fp.currentPosition.y; }
         float meanX = sumX / friendlyPieces.Count;

@@ -4,7 +4,7 @@ using UnityEngine;
 public class RepetitionDetector
 {
     private Dictionary<string, int> stateHistory = new Dictionary<string, int>();
-    public int threshold = 4;
+    public int threshold = 20;
 
     public bool RecordAndCheck(BoardState board, PlayerSide currentPlayer, int turnNumber)
     {

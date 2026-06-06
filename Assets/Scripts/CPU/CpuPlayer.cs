@@ -10,6 +10,7 @@ public class CpuPlayer : MonoBehaviour
     public PlayerSide cpuSide = PlayerSide.Player2;
     private Dictionary<int, BoardCoord> turnStartPositions = new Dictionary<int, BoardCoord>();
     private int cpuMoveCount = 0;
+    private bool firstTurnPlayed = false;
 
     public int DifficultyLevel { get; set; } = 1;
     public EvalWeights Weights { get; set; }
@@ -95,6 +96,18 @@ public class CpuPlayer : MonoBehaviour
 
         PieceModel chosen;
         BoardCoord target;
+
+        if (!firstTurnPlayed)
+        {
+            firstTurnPlayed = true;
+            (chosen, target) = PickRandom(movablePieces);
+            gm.OnPieceClicked(chosen);
+            yield return new WaitForSeconds(0.3f);
+            if (gm.CurrentPhase != GamePhase.WaitingForDestinationSelect) yield break;
+            if (gm.LegalMoves == null || gm.LegalMoves.Count == 0) yield break;
+            gm.OnCellClicked(target);
+            yield break;
+        }
 
         switch (DifficultyLevel)
         {
@@ -461,6 +474,36 @@ public class CpuPlayer : MonoBehaviour
 
         if (turnStartPositions.TryGetValue(piece.pieceId, out var startPos) && target.Equals(startPos))
             score += w.backtrackPenalty;
+
+        if (advance < 0 && turnNum <= 3)
+            score += w.earlyBacktrackPenalty;
+
+        if (advance > 0)
+        {
+            int fewestAdj = int.MaxValue;
+            foreach (var fp in friendlyPieces)
+            {
+                int adjC = 0;
+                foreach (var fp2 in friendlyPieces)
+                {
+                    if (fp2.pieceId == fp.pieceId) continue;
+                    int dx = Mathf.Abs(fp.currentPosition.x - fp2.currentPosition.x);
+                    int dy = Mathf.Abs(fp.currentPosition.y - fp2.currentPosition.y);
+                    if (dx <= 1 && dy <= 1 && (dx != 0 || dy != 0)) adjC++;
+                }
+                if (adjC < fewestAdj) fewestAdj = adjC;
+            }
+            int thisAdj = 0;
+            foreach (var fp in friendlyPieces)
+            {
+                if (fp.pieceId == piece.pieceId) continue;
+                int dx = Mathf.Abs(piece.currentPosition.x - fp.currentPosition.x);
+                int dy = Mathf.Abs(piece.currentPosition.y - fp.currentPosition.y);
+                if (dx <= 1 && dy <= 1 && (dx != 0 || dy != 0)) thisAdj++;
+            }
+            if (thisAdj == fewestAdj)
+                score += w.isolatedAdvanceBonus;
+        }
 
         float sumX = 0, sumY = 0;
         foreach (var fp in friendlyPieces) { sumX += fp.currentPosition.x; sumY += fp.currentPosition.y; }
