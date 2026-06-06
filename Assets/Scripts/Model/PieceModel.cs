@@ -154,6 +154,16 @@ public class PieceModel
         currentPosition = newPos;
     }
 
+    public PieceModel Clone()
+    {
+        var clone = new PieceModel(pieceId, owner, pieceType, currentPosition,
+            new List<Direction>(initialFrontDirections),
+            new List<Direction>(initialBackDirections), isFrontFaceActive);
+        clone.canActThisTurn = canActThisTurn;
+        clone.spawnedThisTurn = spawnedThisTurn;
+        return clone;
+    }
+
     public override string ToString()
     {
         string dirs = string.Join(",", currentFaceDirections);

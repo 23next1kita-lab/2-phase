@@ -12,6 +12,7 @@ public class UIManager : MonoBehaviour
     private Text gameOverText;
     private GameObject confirmButton;
     private GameObject homeButton;
+    private GameObject confirmHomePanel;
 
     private GameManager gameManager;
     private Canvas cachedCanvas;
@@ -66,8 +67,11 @@ public class UIManager : MonoBehaviour
 
         if (homeButton == null)
         {
-            homeButton = CreateGameButton("HomeButton", "Home", new Vector2(350, 200), () => OnReturnToHome());
+            homeButton = CreateGameButton("HomeButton", "Home", new Vector2(350, 200), () => ShowHomeConfirm());
         }
+
+        if (confirmHomePanel == null)
+            confirmHomePanel = CreateHomeConfirmPanel(cachedCanvas.gameObject);
     }
 
     private GameObject CreateGameButton(string name, string label, Vector2 pos, UnityEngine.Events.UnityAction onClick)
@@ -288,6 +292,48 @@ public class UIManager : MonoBehaviour
 
         btnObj.SetActive(false);
         confirmButton = btnObj;
+    }
+
+    public void ShowHomeConfirm()
+    {
+        EnsureUIElements();
+        if (confirmHomePanel != null)
+            confirmHomePanel.SetActive(true);
+    }
+
+    public void HideHomeConfirm()
+    {
+        if (confirmHomePanel != null)
+            confirmHomePanel.SetActive(false);
+    }
+
+    private GameObject CreateHomeConfirmPanel(GameObject canvasObj)
+    {
+        GameObject panel = new GameObject("HomeConfirmPanel");
+        panel.transform.SetParent(canvasObj.transform, false);
+        RectTransform rt = panel.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(400, 200);
+        rt.anchoredPosition = Vector2.zero;
+        Image img = panel.AddComponent<Image>();
+        img.color = new Color(0, 0, 0, 0.85f);
+
+        GameObject textObj = new GameObject("ConfirmText");
+        textObj.transform.SetParent(panel.transform, false);
+        RectTransform textRt = textObj.AddComponent<RectTransform>();
+        textRt.sizeDelta = new Vector2(380, 80);
+        textRt.anchoredPosition = new Vector2(0, 40);
+        Text confirmText = textObj.AddComponent<Text>();
+        confirmText.text = "本当にタイトルに戻りますか？";
+        confirmText.fontSize = 26;
+        confirmText.color = Color.white;
+        confirmText.alignment = TextAnchor.MiddleCenter;
+        confirmText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+        CreateGameOverButton(panel, "YesButton", "はい", new Vector2(-100, -50), () => { HideHomeConfirm(); OnReturnToHome(); });
+        CreateGameOverButton(panel, "NoButton", "いいえ", new Vector2(100, -50), () => HideHomeConfirm());
+
+        panel.SetActive(false);
+        return panel;
     }
 
     public void ShowGameOver(PlayerSide? winner)

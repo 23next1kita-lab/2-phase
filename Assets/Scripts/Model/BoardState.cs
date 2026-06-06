@@ -113,6 +113,20 @@ public class BoardState
         return allPieces.Where(p => p.owner == side && p.canActThisTurn && !p.spawnedThisTurn).ToList();
     }
 
+    public BoardState Clone()
+    {
+        var clone = new BoardState(width, height);
+        clone.nextPieceId = nextPieceId;
+        foreach (var p in allPieces)
+        {
+            var pc = p.Clone();
+            clone.allPieces.Add(pc);
+            if (IsValidCoord(pc.currentPosition))
+                clone.occupancy[pc.currentPosition] = pc;
+        }
+        return clone;
+    }
+
     public void ClearAllPieces()
     {
         allPieces.Clear();

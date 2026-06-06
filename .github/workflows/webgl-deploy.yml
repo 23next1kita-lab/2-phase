@@ -13,28 +13,54 @@ jobs:
         with:
           lfs: true
 
-      - name: Write license file
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-        run: |
-          mkdir -p /tmp/unity-license
-          echo "$UNITY_LICENSE" > /tmp/unity-license/UnityEntitlementLicense.xml
-
       - name: Build WebGL
         run: |
           docker run --rm \
+            -e UNITY_EMAIL="${{ secrets.UNITY_EMAIL }}" \
+            -e UNITY_PASSWORD="${{ secrets.UNITY_PASSWORD }}" \
             -v "$PWD":/workspace \
-            -v /tmp/unity-license/UnityEntitlementLicense.xml:/root/.config/unity3d/Unity/UnityEntitlementLicense.xml:ro \
             -w /workspace \
             unityci/editor:ubuntu-6000.4.1f1-webgl-3 \
             /bin/bash -c '\
+              set -o pipefail && \
+              echo "=== Creating BlankProject ===" && \
+              mkdir -p /BlankProject/Assets && \
+              echo "=== Activating named-user license ===" && \
+              activated=false; \
+              for i in 1 2 3 4 5; do \
+                echo "--- Activation attempt $i ---" && \
+                unity-editor \
+                  -quit -batchmode \
+                  -serial \
+                  -username "$UNITY_EMAIL" \
+                  -password "$UNITY_PASSWORD" \
+                  -projectPath /BlankProject \
+                  -logFile /tmp/activation.log \
+                  2>&1 && \
+                activated=true && \
+                echo "=== Activation successful ===" && \
+                break; \
+                echo "Activation failed, retrying in 15s..." && \
+                sleep 15; \
+              done; \
+              if [ "$activated" = false ]; then \
+                echo "=== Activation log ===" && \
+                cat /tmp/activation.log 2>/dev/null || true && \
+                exit 1; \
+              fi && \
+              echo "=== Build ===" && \
               unity-editor \
                 -quit -batchmode \
+                -nographics \
                 -projectPath /workspace \
                 -executeMethod BuildWebGL.Build \
                 -logFile /tmp/build.log \
                 2>&1; \
-              echo "BUILD_EXIT_CODE=$?"; \
+              EXIT_CODE=$?; \
+              echo "EXIT_CODE=$EXIT_CODE"; \
+              echo "=== Build log ===" && \
+              tail -30 /tmp/build.log 2>/dev/null || true; \
+              exit $EXIT_CODE; \
             '
 
       - name: Check build output

@@ -7,6 +7,12 @@ public class GameBootstrap : MonoBehaviour
 
     private void Awake()
     {
+        if (FindObjectsByType<GameBootstrap>(FindObjectsSortMode.None).Length > 1)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        DontDestroyOnLoad(gameObject);
         Application.targetFrameRate = 60;
     }
 

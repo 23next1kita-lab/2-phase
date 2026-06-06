@@ -31,6 +31,7 @@ public class EvalWeights
     public float territoryControl = 8f;
     public float pieceCountAdvantage = 100f;
     public float isolationPenalty = -10f;
+    public float safeZoneBonus = 700f;
 
     public EvalWeights Clone()
     {
@@ -64,6 +65,7 @@ public class EvalWeights
         MutateField(ref territoryControl, 0, 30, rate, sigma);
         MutateField(ref pieceCountAdvantage, 20, 400, rate, sigma);
         MutateField(ref isolationPenalty, -30, 0, rate, sigma);
+        MutateField(ref safeZoneBonus, 0, 2000, rate, sigma);
     }
 
     private void MutateField(ref float field, float min, float max, float rate, float sigma)

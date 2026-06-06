@@ -38,3 +38,13 @@ Thumbs.db
 # Unity Cache
 **/*.asset.orig
 **/*.meta.orig
+
+# Build/Evolution logs
+*.log
+leveltest*.txt
+
+# Recovery files
+Assets/_Recovery/
+
+# VS
+.vsconfig

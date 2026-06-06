@@ -150,6 +150,7 @@ public class CpuPlayer : MonoBehaviour
 
     private (PieceModel, BoardCoord) PickLookAhead(List<PieceModel> pieces)
     {
+        var w = Weights ?? new EvalWeights();
         var candidates = new List<(PieceModel, BoardCoord, float)>();
 
         foreach (var p in pieces)
@@ -157,15 +158,102 @@ public class CpuPlayer : MonoBehaviour
             var moves = moveResolver.GetLegalMovesForPiece(p);
             foreach (var m in moves)
             {
-                float score = EvaluateMoveV4(p, m);
-                float opponentResponse = GetWorstOpponentResponse(p, m);
-                score -= opponentResponse * 0.7f;
-                candidates.Add((p, m, score));
+                float baseScore = EvaluateMoveV4(p, m);
+                float lookAheadScore = EvaluateLookAhead(p, m, w);
+                candidates.Add((p, m, baseScore + lookAheadScore));
             }
         }
 
         var best = candidates.OrderByDescending(c => c.Item3).First();
         return (best.Item1, best.Item2);
+    }
+
+    private float EvaluateLookAhead(PieceModel piece, BoardCoord target, EvalWeights w)
+    {
+        var simBoard = gm.BoardState.Clone();
+        var simResolver = new MoveResolver(simBoard, gm.GameRules);
+
+        var myPiece = simBoard.GetPieceById(piece.pieceId);
+        if (myPiece == null) return 0;
+
+        var occupant = simBoard.GetPieceAt(target);
+        bool isCapture = occupant != null && occupant.owner != piece.owner;
+
+        simBoard.MovePiece(myPiece, target);
+        if (isCapture)
+        {
+            var captured = simBoard.GetPieceById(occupant.pieceId);
+            if (captured != null) simBoard.RemovePiece(captured);
+        }
+        if (myPiece.pieceType == PieceType.TwoPhase)
+        {
+            var moveDir = GetMoveDirection(piece.currentPosition, target);
+            myPiece.FlipAcross(moveDir);
+        }
+
+        float ourPosScore = EvaluatePosition(simBoard, piece.owner, simResolver, w);
+
+        var opponent = gm.GetOpponent(piece.owner);
+        var oppPieces = simBoard.GetPiecesOf(opponent);
+        float bestOppScore = float.MinValue;
+
+        foreach (var op in oppPieces)
+        {
+            var opMoves2 = simResolver.GetLegalMovesForPiece(op);
+            foreach (var om in opMoves2)
+            {
+                var sim2 = simBoard.Clone();
+                var sim2Resolver = new MoveResolver(sim2, gm.GameRules);
+
+                var op2 = sim2.GetPieceById(op.pieceId);
+                if (op2 == null) continue;
+                var occ2 = sim2.GetPieceAt(om);
+                bool opCapture = occ2 != null && occ2.owner == piece.owner;
+
+                sim2.MovePiece(op2, om);
+                if (opCapture)
+                {
+                    var captured2 = sim2.GetPieceById(occ2.pieceId);
+                    if (captured2 != null) sim2.RemovePiece(captured2);
+                }
+                if (op2.pieceType == PieceType.TwoPhase)
+                {
+                    var opMoveDir = GetMoveDirection(op.currentPosition, om);
+                    op2.FlipAcross(opMoveDir);
+                }
+
+                float oppPos = EvaluatePosition(sim2, piece.owner, sim2Resolver, w);
+                if (oppPos > bestOppScore) bestOppScore = oppPos;
+            }
+        }
+
+        if (bestOppScore == float.MinValue) return ourPosScore;
+        return ourPosScore - bestOppScore;
+    }
+
+    private float EvaluatePosition(BoardState board, PlayerSide side, MoveResolver resolver, EvalWeights w)
+    {
+        float score = 0;
+        var opponent = side == PlayerSide.Player1 ? PlayerSide.Player2 : PlayerSide.Player1;
+        var myPieces = board.GetPiecesOf(side);
+        var oppPieces = board.GetPiecesOf(opponent);
+
+        int myReach = 0, oppReach = 0;
+        foreach (var p in myPieces)
+        {
+            myReach += resolver.GetLegalMovesForPiece(p).Count;
+            score += p.pieceType == PieceType.OnePhase ? 1 : 3;
+        }
+        foreach (var p in oppPieces)
+        {
+            oppReach += resolver.GetLegalMovesForPiece(p).Count;
+            score -= p.pieceType == PieceType.OnePhase ? 1 : 3;
+        }
+
+        score += (myReach - oppReach) * 0.1f;
+        score += (myPieces.Count - oppPieces.Count) * 0.5f;
+
+        return score;
     }
 
     private float EvaluateMoveV4(PieceModel piece, BoardCoord target)
@@ -328,6 +416,33 @@ public class CpuPlayer : MonoBehaviour
                 isoPenalty += minDist;
         }
         score += isoPenalty * w.isolationPenalty;
+
+        int safeZoneCount = 0;
+        int bw = gm.GameRules.boardWidth;
+        int bh = gm.GameRules.boardHeight;
+        for (int x = 0; x < bw; x++)
+        {
+            for (int y = 0; y < bh; y++)
+            {
+                var cellOcc = gm.BoardState.GetPieceAt(new BoardCoord(x, y));
+                if (cellOcc != null && cellOcc.owner != piece.owner) continue;
+                bool surrounded = true;
+                for (int dx = -1; dx <= 1 && surrounded; dx++)
+                {
+                    for (int dy = -1; dy <= 1 && surrounded; dy++)
+                    {
+                        if (dx == 0 && dy == 0) continue;
+                        int nx = x + dx, ny = y + dy;
+                        if (nx < 0 || nx >= bw || ny < 0 || ny >= bh) continue;
+                        var neighbor = gm.BoardState.GetPieceAt(new BoardCoord(nx, ny));
+                        if (neighbor == null || neighbor.owner != piece.owner || neighbor.pieceType != PieceType.TwoPhase)
+                            surrounded = false;
+                    }
+                }
+                if (surrounded) safeZoneCount++;
+            }
+        }
+        score += safeZoneCount * w.safeZoneBonus;
 
         return score;
     }

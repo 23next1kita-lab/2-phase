@@ -10,11 +10,23 @@ public class MainMenuUI : MonoBehaviour
     private int rulesPage;
     private GameObject cpuLevelPanel;
     private bool cpuVsCpuMode;
+    private GameObject randomModePanel;
+    private GameManager.PlayMode pendingPlayMode;
+    private int pendingCpuLevel;
+    private bool pendingCpuVsCpu;
 
     private void Start()
     {
         gameManager = FindObjectOfType<GameManager>();
         CreateMenu();
+
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayBGM("menu");
+    }
+
+    private void PlayClickSE()
+    {
+        AudioManager.Instance?.PlaySE("button_click");
     }
 
     private void CreateMenu()
@@ -46,8 +58,8 @@ public class MainMenuUI : MonoBehaviour
         Image bg = panelObj.AddComponent<Image>();
         bg.color = new Color(0, 0, 0, 0.85f);
 
-        CreateButton("オフライン対戦", new Vector2(0, 180), () => StartGame(GameManager.PlayMode.Offline));
-        CreateButton("オンライン対戦", new Vector2(0, 80), () => StartGame(GameManager.PlayMode.Online));
+        CreateButton("オフライン対戦", new Vector2(0, 180), () => ShowRandomModeSelect(GameManager.PlayMode.Offline));
+        CreateButton("オンライン対戦", new Vector2(0, 80), () => ShowRandomModeSelect(GameManager.PlayMode.Online));
         CreateButton("CPU戦", new Vector2(0, -20), () => ShowCpuLevelSelect(false));
         CreateButton("CPU vs CPU", new Vector2(0, -120), () => ShowCpuLevelSelect(true));
         CreateButton("ルール説明", new Vector2(0, -220), () => ShowRules());
@@ -57,6 +69,9 @@ public class MainMenuUI : MonoBehaviour
 
         cpuLevelPanel = CreateCpuLevelPanel(canvas.gameObject);
         cpuLevelPanel.SetActive(false);
+
+        randomModePanel = CreateRandomModePanel(canvas.gameObject);
+        randomModePanel.SetActive(false);
     }
 
     private void CreateButton(string label, Vector2 pos, UnityEngine.Events.UnityAction onClick)
@@ -86,6 +101,7 @@ public class MainMenuUI : MonoBehaviour
 
         Button btn = btnObj.AddComponent<Button>();
         btn.targetGraphic = img;
+        btn.onClick.AddListener(() => PlayClickSE());
         btn.onClick.AddListener(onClick);
     }
 
@@ -222,10 +238,10 @@ public class MainMenuUI : MonoBehaviour
         Image bg = panel.AddComponent<Image>();
         bg.color = new Color(0, 0, 0, 0.9f);
 
-        CreatePanelButton(panel, "レベル1 (初級)", new Vector2(0, 100), () => { panel.SetActive(false); StartCpuGame(1); });
-        CreatePanelButton(panel, "レベル2 (中級)", new Vector2(0, 20), () => { panel.SetActive(false); StartCpuGame(2); });
-        CreatePanelButton(panel, "レベル3 (上級)", new Vector2(0, -60), () => { panel.SetActive(false); StartCpuGame(3); });
-        CreatePanelButton(panel, "レベル4 (最強)", new Vector2(0, -140), () => { panel.SetActive(false); StartCpuGame(4); });
+        CreatePanelButton(panel, "レベル1 (初級)", new Vector2(0, 100), () => { panel.SetActive(false); pendingCpuLevel = 1; ShowRandomModeSelect(); });
+        CreatePanelButton(panel, "レベル2 (中級)", new Vector2(0, 20), () => { panel.SetActive(false); pendingCpuLevel = 2; ShowRandomModeSelect(); });
+        CreatePanelButton(panel, "レベル3 (上級)", new Vector2(0, -60), () => { panel.SetActive(false); pendingCpuLevel = 3; ShowRandomModeSelect(); });
+        CreatePanelButton(panel, "レベル4 (最強)", new Vector2(0, -140), () => { panel.SetActive(false); pendingCpuLevel = 4; ShowRandomModeSelect(); });
         CreatePanelButton(panel, "戻る", new Vector2(0, -240), () => panel.SetActive(false));
 
         return panel;
@@ -237,12 +253,49 @@ public class MainMenuUI : MonoBehaviour
         cpuLevelPanel.SetActive(true);
     }
 
-    private void StartCpuGame(int level)
+    private void ShowRandomModeSelect(GameManager.PlayMode mode)
     {
-        if (cpuVsCpuMode)
-            StartGame(GameManager.PlayMode.CpuVsCpu, level);
-        else
-            StartGame(GameManager.PlayMode.CPU, level);
+        pendingPlayMode = mode;
+        randomModePanel.SetActive(true);
+    }
+
+    private void ShowRandomModeSelect()
+    {
+        pendingPlayMode = cpuVsCpuMode ? GameManager.PlayMode.CpuVsCpu : GameManager.PlayMode.CPU;
+        randomModePanel.SetActive(true);
+    }
+
+    private GameObject CreateRandomModePanel(GameObject canvasObj)
+    {
+        GameObject panel = new GameObject("RandomModePanel", typeof(RectTransform));
+        panel.transform.SetParent(canvasObj.transform, false);
+        RectTransform rt = panel.GetComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.sizeDelta = Vector2.zero;
+
+        Image bg = panel.AddComponent<Image>();
+        bg.color = new Color(0, 0, 0, 0.9f);
+
+        CreatePanelButton(panel, "通常配置", new Vector2(0, 60), () =>
+        {
+            panel.SetActive(false);
+            StartGameWithRandomMode(false);
+        });
+        CreatePanelButton(panel, "ランダム配置", new Vector2(0, -20), () =>
+        {
+            panel.SetActive(false);
+            StartGameWithRandomMode(true);
+        });
+        CreatePanelButton(panel, "戻る", new Vector2(0, -120), () => panel.SetActive(false));
+
+        return panel;
+    }
+
+    private void StartGameWithRandomMode(bool useRandom)
+    {
+        gameManager.GameRules.randomPieceDirections = useRandom;
+        StartGame(pendingPlayMode, pendingCpuLevel);
     }
 
     private void CreatePanelButton(GameObject parent, string label, Vector2 pos, UnityEngine.Events.UnityAction onClick)
@@ -267,6 +320,7 @@ public class MainMenuUI : MonoBehaviour
         txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         Button btn = btnObj.AddComponent<Button>();
         btn.targetGraphic = img;
+        btn.onClick.AddListener(() => PlayClickSE());
         btn.onClick.AddListener(onClick);
     }
 
@@ -284,6 +338,7 @@ public class MainMenuUI : MonoBehaviour
         Destroy(panelObj);
         Destroy(rulesPanel);
         Destroy(cpuLevelPanel);
+        Destroy(randomModePanel);
         gameManager.StartGame(mode, cpuLevel);
     }
 }

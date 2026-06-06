@@ -61,6 +61,12 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
+        if (FindObjectOfType<AudioManager>() == null)
+        {
+            var audioObj = new GameObject("AudioManager");
+            audioObj.AddComponent<AudioManager>();
+        }
+
         if (gameRules == null)
         {
             gameRules = ScriptableObject.CreateInstance<GameRulesSO>();
@@ -162,6 +168,9 @@ public class GameManager : MonoBehaviour
     public void InitializeGame()
     {
         SpriteCache.Load();
+
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayRandomBGM("battle1", "battle2");
 
         if (splitController != null)
             splitController.ClearFloatingPieces();
@@ -309,8 +318,9 @@ public class GameManager : MonoBehaviour
 
         for (int i = 0; i < count; i++)
         {
-            var front = PickRandomDirections(allDirs, Random.Range(1, 5));
-            var back = PickRandomDirections(allDirs, Random.Range(1, 5));
+            int dirCount = i switch { 3 => 6, 2 or 4 => 5, _ => 4 };
+            var front = PickRandomDirections(allDirs, dirCount);
+            var back = PickRandomDirections(allDirs, dirCount);
             presets[i] = (front, back);
         }
 
@@ -396,6 +406,8 @@ public class GameManager : MonoBehaviour
 
         Debug.Log($"[Input] Selected {selectedPiece.owner}'s piece {selectedPiece.pieceId} at {selectedPiece.currentPosition}. Legal moves: {legalMoves.Count}");
 
+        AudioManager.Instance?.PlaySE("piece_select");
+
         if (boardView != null)
             boardView.UpdateHighlights(legalMoves);
         if (uiManager != null)
@@ -442,6 +454,8 @@ public class GameManager : MonoBehaviour
             if (boardView != null)
                 boardView.RemovePieceView(captured.pieceId);
 
+            AudioManager.Instance?.PlaySE("capture");
+
             var captureResult = captureResolver.ResolveCaptureWithCaptured(captured, selectedPiece.owner);
 
             if (captureResult.isGameOver)
@@ -450,6 +464,7 @@ public class GameManager : MonoBehaviour
                 if (boardView != null) boardView.UpdatePieceView(selectedPiece.pieceId);
                 currentPhase = GamePhase.GameOver;
                 Debug.Log($"[Game] Game over! Winner: {captureResult.winner}");
+                AudioManager.Instance?.PlaySE("gameover");
                 if (uiManager != null)
                 {
                     uiManager.ShowGameOver(captureResult.winner);
@@ -520,6 +535,7 @@ public class GameManager : MonoBehaviour
             if (boardView != null)
                 boardView.UpdatePieceView(selectedPiece.pieceId);
 
+            AudioManager.Instance?.PlaySE("move");
             turnManager.OnMoveCompleted(selectedPiece);
         }
 
@@ -575,6 +591,7 @@ public class GameManager : MonoBehaviour
             gameWinner = null;
             currentPhase = GamePhase.GameOver;
             Debug.Log("[Game] Draw by repetition (after split)!");
+            AudioManager.Instance?.PlaySE("gameover");
             if (uiManager != null)
                 uiManager.ShowGameOver(null);
             if (boardView != null)
@@ -629,6 +646,7 @@ public class GameManager : MonoBehaviour
             gameWinner = null;
             currentPhase = GamePhase.GameOver;
             Debug.Log("[Game] Draw by repetition!");
+            AudioManager.Instance?.PlaySE("gameover");
             if (uiManager != null)
                 uiManager.ShowGameOver(null);
             if (boardView != null)
