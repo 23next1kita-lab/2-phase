@@ -40,6 +40,9 @@ public class EvalWeights
     public float safeTwoPhaseCapture = 1000f;
     public float twoPhaseWall = 15f;
     public float exposedOnePhase = -100f;
+    public float openingAdvanceBonus = 2000f;
+    public float twoPhaseThreat = 5000f;
+    public float secondMoveCaptureBonus = 8000f;
 
     public EvalWeights Clone()
     {
@@ -82,6 +85,9 @@ public class EvalWeights
         MutateField(ref safeTwoPhaseCapture, 300, 3000, rate, sigma);
         MutateField(ref twoPhaseWall, 5, 40, rate, sigma);
         MutateField(ref exposedOnePhase, -300, -30, rate, sigma);
+        MutateField(ref openingAdvanceBonus, 200, 8000, rate, sigma);
+        MutateField(ref twoPhaseThreat, 500, 20000, rate, sigma);
+        MutateField(ref secondMoveCaptureBonus, 500, 30000, rate, sigma);
     }
 
     private void MutateField(ref float field, float min, float max, float rate, float sigma)

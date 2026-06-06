@@ -9,6 +9,7 @@ public class CpuPlayer : MonoBehaviour
     private MoveResolver moveResolver;
     public PlayerSide cpuSide = PlayerSide.Player2;
     private Dictionary<int, BoardCoord> turnStartPositions = new Dictionary<int, BoardCoord>();
+    private int cpuMoveCount = 0;
 
     public int DifficultyLevel { get; set; } = 1;
     public EvalWeights Weights { get; set; }
@@ -69,9 +70,11 @@ public class CpuPlayer : MonoBehaviour
             }
             if (turnStartPositions.Count == 0)
             {
+                cpuMoveCount = 0;
                 foreach (var p in gm.BoardState.GetPiecesOf(cpuSide))
                     turnStartPositions[p.pieceId] = p.currentPosition;
             }
+            cpuMoveCount++;
             StartCoroutine(DoCpuTurn());
         }
     }
@@ -425,6 +428,9 @@ public class CpuPlayer : MonoBehaviour
         else if (advance < 0)
             score += w.retreatPenalty;
 
+        if (advance > 0 && turnNum <= 5)
+            score += w.openingAdvanceBonus;
+
         if (turnStartPositions.TryGetValue(piece.pieceId, out var startPos) && target.Equals(startPos))
             score += w.backtrackPenalty;
 
@@ -449,6 +455,9 @@ public class CpuPlayer : MonoBehaviour
             if (!canRecapture)
                 score += w.safeTwoPhaseCapture;
         }
+
+        if (isCapture && occupant != null && occupant.pieceType == PieceType.TwoPhase && cpuMoveCount >= 2)
+            score += w.secondMoveCaptureBonus;
 
         if (piece.pieceType == PieceType.TwoPhase)
         {
@@ -492,6 +501,8 @@ public class CpuPlayer : MonoBehaviour
                         { safe = false; break; }
                     }
                     score += safe ? w.safeForkCapture : w.riskyForkCapture;
+                    if (safe && piece.pieceType == PieceType.TwoPhase)
+                        score += w.twoPhaseThreat;
                 }
             }
         }

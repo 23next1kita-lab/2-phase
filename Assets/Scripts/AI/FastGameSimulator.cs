@@ -18,6 +18,7 @@ public class FastGameSimulator
     private bool isDraw;
     private int captureCount;
     private Dictionary<int, BoardCoord> fastTurnStartPositions;
+    private int fastMoveCount;
 
     public int CaptureCount => captureCount;
     public PlayerSide? Winner => winner;
@@ -158,6 +159,7 @@ public class FastGameSimulator
             fastTurnStartPositions = new Dictionary<int, BoardCoord>();
             foreach (var p in board.GetPiecesOf(player))
                 fastTurnStartPositions[p.pieceId] = p.currentPosition;
+            fastMoveCount = 0;
 
             int movesAllowed = turnManager.MovesRemaining;
             bool wasCapture = false;
@@ -167,6 +169,7 @@ public class FastGameSimulator
                 if (winner.HasValue) return winner.Value;
                 if (isDraw) return null;
 
+                fastMoveCount = m + 1;
                 var movable = GetMovablePieces(player);
                 if (movable.Count == 0) break;
 
@@ -472,6 +475,10 @@ public class FastGameSimulator
         else if (advance < 0)
             score += w.retreatPenalty;
 
+        int turnNumF = turnManager?.TurnNumber ?? 0;
+        if (advance > 0 && turnNumF <= 5)
+            score += w.openingAdvanceBonus;
+
         if (fastTurnStartPositions != null && fastTurnStartPositions.TryGetValue(piece.pieceId, out var startPos) && target.Equals(startPos))
             score += w.backtrackPenalty;
 
@@ -496,6 +503,9 @@ public class FastGameSimulator
             if (!canRecapture)
                 score += w.safeTwoPhaseCapture;
         }
+
+        if (isCapture && occupant != null && occupant.pieceType == PieceType.TwoPhase && fastMoveCount >= 2)
+            score += w.secondMoveCaptureBonus;
 
         if (piece.pieceType == PieceType.TwoPhase)
         {
@@ -539,6 +549,8 @@ public class FastGameSimulator
                         { safe = false; break; }
                     }
                     score += safe ? w.safeForkCapture : w.riskyForkCapture;
+                    if (safe && piece.pieceType == PieceType.TwoPhase)
+                        score += w.twoPhaseThreat;
                 }
             }
         }
@@ -830,6 +842,7 @@ public class FastGameSimulator
             fastTurnStartPositions = new Dictionary<int, BoardCoord>();
             foreach (var p in board.GetPiecesOf(player))
                 fastTurnStartPositions[p.pieceId] = p.currentPosition;
+            fastMoveCount = 0;
 
             int movesAllowed = turnManager.MovesRemaining;
             bool wasCapture = false;
@@ -839,6 +852,7 @@ public class FastGameSimulator
                 if (winner.HasValue) return winner.Value;
                 if (isDraw) return null;
 
+                fastMoveCount = m + 1;
                 var movable = GetMovablePieces(player);
                 if (movable.Count == 0) break;
 
