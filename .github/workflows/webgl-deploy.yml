@@ -16,7 +16,7 @@ jobs:
       - name: Build WebGL
         shell: cmd
         run: |
-          "C:\Program Files\Unity\Hub\Editor\Unity 6000.4.1f1\Editor\Unity.exe" -quit -batchmode -projectPath "%GITHUB_WORKSPACE%" -executeMethod BuildWebGL.Build -logFile build.log
+          "C:\Program Files\Unity\Hub\Editor\6000.4.1f1\Editor\Unity.exe" -quit -batchmode -projectPath "%GITHUB_WORKSPACE%" -executeMethod BuildWebGL.Build -logFile build.log
           set UNITY_ERR=%ERRORLEVEL%
           type build.log
           exit /b !UNITY_ERR!
