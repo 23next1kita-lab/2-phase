@@ -5,11 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-  UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-  UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,15 +13,28 @@ jobs:
         with:
           lfs: true
 
-      - uses: game-ci/unity-builder@v4
-        with:
-          unityVersion: 6000.4.1f1
-          targetPlatform: WebGL
-          allowDirtyBuild: true
+      - name: Build WebGL
+        run: |
+          docker run --rm \
+            -e UNITY_EMAIL="${{ secrets.UNITY_EMAIL }}" \
+            -e UNITY_PASSWORD="${{ secrets.UNITY_PASSWORD }}" \
+            -v "$PWD":/workspace \
+            -w /workspace \
+            unityci/editor:ubuntu-6000.4.1f1-webgl-3 \
+            /bin/bash -c '\
+              unity-editor \
+                -quit -batchmode \
+                -username "$UNITY_EMAIL" -password "$UNITY_PASSWORD" \
+                -projectPath /workspace \
+                -executeMethod BuildWebGL.Build \
+                -logFile /tmp/build.log \
+                2>&1; \
+              echo "BUILD_EXIT_CODE=$?"; \
+            '
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: build/WebGL
+          path: Builds/WebGL
 
   deploy:
     needs: build
