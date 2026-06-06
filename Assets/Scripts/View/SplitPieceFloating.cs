@@ -80,6 +80,7 @@ public class SplitPieceFloating : MonoBehaviour
 
     void OnMouseDown()
     {
+        if (Camera.main == null) return;
         isDragging = false;
         dragStartPosition = transform.position;
 
@@ -90,6 +91,7 @@ public class SplitPieceFloating : MonoBehaviour
 
     void OnMouseDrag()
     {
+        if (Camera.main == null) return;
         isDragging = true;
         Vector3 mouseWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         mouseWorld.z = transform.position.z;

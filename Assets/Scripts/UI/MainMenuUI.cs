@@ -14,6 +14,8 @@ public class MainMenuUI : MonoBehaviour
     private GameManager.PlayMode pendingPlayMode;
     private int pendingCpuLevel;
     private bool pendingCpuVsCpu;
+    private GameObject timePanel;
+    private int pendingTimeSeconds;
 
     private void Start()
     {
@@ -72,6 +74,9 @@ public class MainMenuUI : MonoBehaviour
 
         randomModePanel = CreateRandomModePanel(canvas.gameObject);
         randomModePanel.SetActive(false);
+
+        timePanel = CreateTimePanel(canvas.gameObject);
+        timePanel.SetActive(false);
     }
 
     private void CreateButton(string label, Vector2 pos, UnityEngine.Events.UnityAction onClick)
@@ -256,13 +261,61 @@ public class MainMenuUI : MonoBehaviour
     private void ShowRandomModeSelect(GameManager.PlayMode mode)
     {
         pendingPlayMode = mode;
-        randomModePanel.SetActive(true);
+        ShowTimeSelect();
     }
 
     private void ShowRandomModeSelect()
     {
         pendingPlayMode = cpuVsCpuMode ? GameManager.PlayMode.CpuVsCpu : GameManager.PlayMode.CPU;
-        randomModePanel.SetActive(true);
+        ShowTimeSelect();
+    }
+
+    private GameObject CreateTimePanel(GameObject canvasObj)
+    {
+        GameObject panel = new GameObject("TimePanel", typeof(RectTransform));
+        panel.transform.SetParent(canvasObj.transform, false);
+        RectTransform rt = panel.GetComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.sizeDelta = Vector2.zero;
+
+        Image bg = panel.AddComponent<Image>();
+        bg.color = new Color(0, 0, 0, 0.9f);
+
+        Text titleObj = new GameObject("Title", typeof(RectTransform)).AddComponent<Text>();
+        titleObj.transform.SetParent(panel.transform, false);
+        RectTransform titleRt = titleObj.GetComponent<RectTransform>();
+        titleRt.anchorMin = new Vector2(0.5f, 0.5f);
+        titleRt.anchorMax = new Vector2(0.5f, 0.5f);
+        titleRt.sizeDelta = new Vector2(300, 60);
+        titleRt.anchoredPosition = new Vector2(0, 160);
+        titleObj.text = "持ち時間";
+        titleObj.fontSize = 28;
+        titleObj.color = Color.white;
+        titleObj.alignment = TextAnchor.MiddleCenter;
+        titleObj.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+        int[] options = { 0, 60, 180, 300, 600 };
+        string[] labels = { "なし", "1分", "3分", "5分", "10分" };
+        for (int i = 0; i < options.Length; i++)
+        {
+            int t = options[i];
+            int idx = i;
+            CreatePanelButton(panel, labels[idx], new Vector2(0, 80 - idx * 70), () =>
+            {
+                panel.SetActive(false);
+                pendingTimeSeconds = t;
+                randomModePanel.SetActive(true);
+            });
+        }
+        CreatePanelButton(panel, "戻る", new Vector2(0, 80 - 6 * 70), () => panel.SetActive(false));
+
+        return panel;
+    }
+
+    private void ShowTimeSelect()
+    {
+        timePanel.SetActive(true);
     }
 
     private GameObject CreateRandomModePanel(GameObject canvasObj)
@@ -295,6 +348,7 @@ public class MainMenuUI : MonoBehaviour
     private void StartGameWithRandomMode(bool useRandom)
     {
         gameManager.GameRules.randomPieceDirections = useRandom;
+        gameManager.GameRules.timeControlSeconds = pendingTimeSeconds;
         StartGame(pendingPlayMode, pendingCpuLevel);
     }
 
@@ -339,6 +393,7 @@ public class MainMenuUI : MonoBehaviour
         Destroy(rulesPanel);
         Destroy(cpuLevelPanel);
         Destroy(randomModePanel);
+        Destroy(timePanel);
         gameManager.StartGame(mode, cpuLevel);
     }
 }
