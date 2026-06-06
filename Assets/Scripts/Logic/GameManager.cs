@@ -147,6 +147,8 @@ public class GameManager : MonoBehaviour
             cpu2.DifficultyLevel = cpuLevel;
             cpu2.cpuSide = PlayerSide.Player2;
         }
+
+        OnGameStateChanged?.Invoke();
     }
 
     private void OnNetworkConnected()
