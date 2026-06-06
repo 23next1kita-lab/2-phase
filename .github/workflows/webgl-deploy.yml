@@ -14,18 +14,16 @@ jobs:
           lfs: true
 
       - name: Build WebGL
+        shell: powershell -ExecutionPolicy Bypass
         run: |
-          & "C:\Program Files\Unity\Hub\Editor\Unity 6000.4.1f1\Editor\Unity.exe" ^
-            -quit -batchmode ^
-            -projectPath "$env:GITHUB_WORKSPACE" ^
-            -executeMethod BuildWebGL.Build ^
+          & "C:\Program Files\Unity\Hub\Editor\Unity 6000.4.1f1\Editor\Unity.exe" `
+            -quit -batchmode `
+            -projectPath "$env:GITHUB_WORKSPACE" `
+            -executeMethod BuildWebGL.Build `
             -logFile build.log
           $exitCode = $LASTEXITCODE
           Get-Content build.log -Tail 30
           if ($exitCode -ne 0) { exit $exitCode }
-
-      - name: Check build output
-        run: Get-ChildItem -Path Builds/WebGL -ErrorAction SilentlyContinue | Select-Object Name
 
       - uses: actions/upload-pages-artifact@v3
         with:
