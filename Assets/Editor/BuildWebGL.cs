@@ -6,6 +6,7 @@ public static class BuildWebGL
     [MenuItem("Build/WebGL")]
     public static void Build()
     {
+        PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
         var scenes = new[] { "Assets/Scenes/SampleScene.unity" };
         var options = new BuildPlayerOptions
         {
