@@ -24,6 +24,8 @@ public class CpuPlayer : MonoBehaviour
         moveResolver = new MoveResolver(gm.BoardState, gm.GameRules);
         gm.OnGameStateChanged += OnGameStateChanged;
 
+        Debug.Log($"[CpuPlayer] Awake: gm={gm != null}, boardState={gm?.BoardState}, gameRules={gm?.GameRules}, cpuSide={cpuSide}");
+
         if (Weights == null)
         {
             var loaded = WeightEvolution.LoadBestWeights();
@@ -37,6 +39,7 @@ public class CpuPlayer : MonoBehaviour
 
     private void OnGameStateChanged()
     {
+        Debug.Log($"[CpuPlayer] OnGameStateChanged: phase={gm.CurrentPhase}, playMode={gm.CurrentPlayMode}, turn={gm.TurnManager?.CurrentPlayer}, cpuSide={cpuSide}");
         if (gm.CurrentPlayMode != GameManager.PlayMode.CPU &&
             gm.CurrentPlayMode != GameManager.PlayMode.CpuVsCpu) return;
         if (gm.TurnManager == null) return;
@@ -44,10 +47,16 @@ public class CpuPlayer : MonoBehaviour
 
         if (gm.CurrentPhase == GamePhase.PlacingSplitPieces)
         {
+            Debug.Log($"[CpuPlayer] Split phase: pendingPieces={gm.PendingSplitPieces?.Count}, owner={(gm.PendingSplitPieces != null && gm.PendingSplitPieces.Count > 0 ? gm.PendingSplitPieces[0].owner.ToString() : "n/a")}");
             if (gm.PendingSplitPieces != null && gm.PendingSplitPieces.Count > 0 &&
                 gm.PendingSplitPieces[0].owner == cpuSide)
             {
+                Debug.Log("[CpuPlayer] Starting split placement coroutine");
                 StartCoroutine(DoCpuSplitPlacement());
+            }
+            else
+            {
+                Debug.Log("[CpuPlayer] Split pieces not owned by CPU, skipping");
             }
         }
         else if (gm.CurrentPhase == GamePhase.WaitingForPieceSelect)
@@ -504,10 +513,11 @@ public class CpuPlayer : MonoBehaviour
 
     private IEnumerator DoCpuSplitPlacement()
     {
+        Debug.Log("[CpuPlayer] DoCpuSplitPlacement started");
         yield return new WaitForSeconds(0.5f);
 
-        if (gm.CurrentPhase != GamePhase.PlacingSplitPieces) yield break;
-        if (gm.PendingSplitPieces == null || gm.PendingSplitPieces.Count == 0) yield break;
+        if (gm.CurrentPhase != GamePhase.PlacingSplitPieces) { Debug.Log("[CpuPlayer] Split placement aborted: phase changed"); yield break; }
+        if (gm.PendingSplitPieces == null || gm.PendingSplitPieces.Count == 0) { Debug.Log("[CpuPlayer] Split placement aborted: no pending pieces"); yield break; }
 
         var emptyCells = gm.BoardState.GetEmptyCells();
         if (emptyCells.Count < gm.PendingSplitPieces.Count)
@@ -518,6 +528,8 @@ public class CpuPlayer : MonoBehaviour
 
         var placed = new List<PieceModel>();
 
+        Debug.Log($"[CpuPlayer] Placing {gm.PendingSplitPieces.Count} split pieces on {emptyCells.Count} empty cells");
+
         if (DifficultyLevel <= 1)
         {
             var shuffledCells = emptyCells.OrderBy(_ => Random.value).ToList();
@@ -525,6 +537,7 @@ public class CpuPlayer : MonoBehaviour
             {
                 var piece = gm.PendingSplitPieces[i];
                 var coord = shuffledCells[i];
+                Debug.Log($"[CpuPlayer] Placing split piece {piece.pieceId} at {coord}");
                 gm.PlaceSplitPieceOnBoard(piece, coord);
                 if (gm.BoardView != null)
                     gm.BoardView.CreatePieceView(piece);
@@ -544,6 +557,7 @@ public class CpuPlayer : MonoBehaviour
             {
                 var piece = gm.PendingSplitPieces[i];
                 var coord = sortedCells[i];
+                Debug.Log($"[CpuPlayer] Placing split piece {piece.pieceId} at {coord}");
                 gm.PlaceSplitPieceOnBoard(piece, coord);
                 if (gm.BoardView != null)
                     gm.BoardView.CreatePieceView(piece);
@@ -600,6 +614,7 @@ public class CpuPlayer : MonoBehaviour
             {
                 var piece = gm.PendingSplitPieces[i];
                 var coord = scoredCells[i];
+                Debug.Log($"[CpuPlayer] Placing split piece {piece.pieceId} at {coord}");
                 gm.PlaceSplitPieceOnBoard(piece, coord);
                 if (gm.BoardView != null)
                     gm.BoardView.CreatePieceView(piece);
@@ -607,6 +622,7 @@ public class CpuPlayer : MonoBehaviour
             }
         }
 
+        Debug.Log($"[CpuPlayer] Finalizing split placement with {placed.Count} pieces");
         yield return new WaitForSeconds(0.2f);
         gm.FinalizeSplitPlacement(placed);
     }
