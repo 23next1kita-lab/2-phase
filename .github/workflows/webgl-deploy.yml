@@ -22,33 +22,24 @@ jobs:
             -w /workspace \
             unityci/editor:ubuntu-6000.4.1f1-webgl-3 \
             /bin/bash -c '\
-              set -o pipefail && \
-              echo "=== Creating BlankProject ===" && \
               mkdir -p /BlankProject/Assets && \
-              echo "=== Activating named-user license ===" && \
-              activated=false; \
-              for i in 1 2 3 4 5; do \
-                echo "--- Activation attempt $i ---" && \
-                unity-editor \
-                  -quit -batchmode \
-                  -serial \
-                  -username "$UNITY_EMAIL" \
-                  -password "$UNITY_PASSWORD" \
-                  -projectPath /BlankProject \
-                  -logFile /tmp/activation.log \
-                  2>&1 && \
-                activated=true && \
-                echo "=== Activation successful ===" && \
-                break; \
-                echo "Activation failed, retrying in 15s..." && \
-                sleep 15; \
-              done; \
-              if [ "$activated" = false ]; then \
-                echo "=== Activation log ===" && \
-                cat /tmp/activation.log 2>/dev/null || true && \
-                exit 1; \
-              fi && \
-              echo "=== Build ===" && \
+              echo "=== Step 1: Activate license ===" && \
+              unity-editor \
+                -quit -batchmode \
+                -serial \
+                -username "$UNITY_EMAIL" \
+                -password "$UNITY_PASSWORD" \
+                -projectPath /BlankProject \
+                -logFile /tmp/activation.log \
+                2>&1; \
+              echo "=== Activation log (first 60 lines) ===" && \
+              head -60 /tmp/activation.log 2>/dev/null; \
+              echo "=== Step 2: Check license files ===" && \
+              find /root -name "UnityEntitlementLicense.xml" 2>/dev/null; \
+              find /root -name "*.ulf" 2>/dev/null; \
+              find /root/.local/share/unity3d -type f 2>/dev/null || true; \
+              find /root/.config/unity3d -type f 2>/dev/null || true; \
+              echo "=== Step 3: Build ===" && \
               unity-editor \
                 -quit -batchmode \
                 -nographics \
@@ -58,7 +49,7 @@ jobs:
                 2>&1; \
               EXIT_CODE=$?; \
               echo "EXIT_CODE=$EXIT_CODE"; \
-              echo "=== Build log ===" && \
+              echo "=== Build log (last 30) ===" && \
               tail -30 /tmp/build.log 2>/dev/null || true; \
               exit $EXIT_CODE; \
             '
