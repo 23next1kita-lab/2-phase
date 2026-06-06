@@ -46,6 +46,7 @@ public class EvalWeights
     public float safeThreatBonus = 10000f;
     public float earlyBacktrackPenalty = -80000f;
     public float isolatedAdvanceBonus = 5000f;
+    public float stateRepeatPenalty = -500000f;
 
     public EvalWeights Clone()
     {
@@ -94,6 +95,7 @@ public class EvalWeights
         MutateField(ref safeThreatBonus, 1000, 40000, rate, sigma);
         MutateField(ref earlyBacktrackPenalty, -200000, -5000, rate, sigma);
         MutateField(ref isolatedAdvanceBonus, 500, 20000, rate, sigma);
+        MutateField(ref stateRepeatPenalty, -1500000, -50000, rate, sigma);
     }
 
     private void MutateField(ref float field, float min, float max, float rate, float sigma)

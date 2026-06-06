@@ -11,6 +11,7 @@ public class CpuPlayer : MonoBehaviour
     private Dictionary<int, BoardCoord> turnStartPositions = new Dictionary<int, BoardCoord>();
     private int cpuMoveCount = 0;
     private bool firstTurnPlayed = false;
+    private List<string> pastFriendlyStateHashes = new List<string>();
 
     public int DifficultyLevel { get; set; } = 1;
     public EvalWeights Weights { get; set; }
@@ -72,6 +73,9 @@ public class CpuPlayer : MonoBehaviour
             if (turnStartPositions.Count == 0)
             {
                 cpuMoveCount = 0;
+                pastFriendlyStateHashes.Insert(0, GetCurrentFriendlyStateHash());
+                if (pastFriendlyStateHashes.Count > 5)
+                    pastFriendlyStateHashes.RemoveAt(pastFriendlyStateHashes.Count - 1);
                 foreach (var p in gm.BoardState.GetPiecesOf(cpuSide))
                     turnStartPositions[p.pieceId] = p.currentPosition;
             }
@@ -505,6 +509,16 @@ public class CpuPlayer : MonoBehaviour
                 score += w.isolatedAdvanceBonus;
         }
 
+        if (pastFriendlyStateHashes.Count >= 3)
+        {
+            string projHash = GetProjectedStateHash(piece, target, isCapture);
+            for (int i = 2; i < pastFriendlyStateHashes.Count && i <= 4; i++)
+            {
+                if (projHash == pastFriendlyStateHashes[i])
+                    score += w.stateRepeatPenalty;
+            }
+        }
+
         float sumX = 0, sumY = 0;
         foreach (var fp in friendlyPieces) { sumX += fp.currentPosition.x; sumY += fp.currentPosition.y; }
         float meanX = sumX / friendlyPieces.Count;
@@ -846,6 +860,30 @@ public class CpuPlayer : MonoBehaviour
                 result.Add(p);
         }
         return result;
+    }
+
+    private string GetCurrentFriendlyStateHash()
+    {
+        var pieces = gm.BoardState.GetPiecesOf(cpuSide);
+        var positions = pieces.Select(p => p.currentPosition)
+            .OrderBy(c => c.x * 100 + c.y)
+            .Select(c => $"{c.x},{c.y}");
+        return string.Join("|", positions);
+    }
+
+    private string GetProjectedStateHash(PieceModel piece, BoardCoord target, bool isCapture)
+    {
+        var pieces = gm.BoardState.GetPiecesOf(cpuSide);
+        var positions = new List<BoardCoord>();
+        foreach (var p in pieces)
+        {
+            if (p.pieceId == piece.pieceId)
+                positions.Add(target);
+            else
+                positions.Add(p.currentPosition);
+        }
+        var sorted = positions.OrderBy(c => c.x * 100 + c.y).Select(c => $"{c.x},{c.y}");
+        return string.Join("|", sorted);
     }
 
     private void OnDestroy()

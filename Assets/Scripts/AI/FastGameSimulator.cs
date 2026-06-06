@@ -19,6 +19,7 @@ public class FastGameSimulator
     private int captureCount;
     private Dictionary<int, BoardCoord> fastTurnStartPositions;
     private int fastMoveCount;
+    private List<string> fastPastStateHashes;
 
     public int CaptureCount => captureCount;
     public PlayerSide? Winner => winner;
@@ -51,6 +52,7 @@ public class FastGameSimulator
         isDraw = false;
         captureCount = 0;
         repDetector = new RepetitionDetector();
+        fastPastStateHashes = new List<string>();
 
         PlaceDefaultPieces();
 
@@ -160,6 +162,9 @@ public class FastGameSimulator
             foreach (var p in board.GetPiecesOf(player))
                 fastTurnStartPositions[p.pieceId] = p.currentPosition;
             fastMoveCount = 0;
+            fastPastStateHashes.Insert(0, GetCurrentFriendlyStateHashFast(player));
+            if (fastPastStateHashes.Count > 5)
+                fastPastStateHashes.RemoveAt(fastPastStateHashes.Count - 1);
 
             int movesAllowed = turnManager.MovesRemaining;
             bool wasCapture = false;
@@ -512,6 +517,16 @@ public class FastGameSimulator
                 score += w.isolatedAdvanceBonus;
         }
 
+        if (fastPastStateHashes != null && fastPastStateHashes.Count >= 3)
+        {
+            string projHash = GetProjectedStateHashFast(piece, target, isCapture);
+            for (int i = 2; i < fastPastStateHashes.Count && i <= 4; i++)
+            {
+                if (projHash == fastPastStateHashes[i])
+                    score += w.stateRepeatPenalty;
+            }
+        }
+
         float sumX = 0, sumY = 0;
         foreach (var fp in friendlyPieces) { sumX += fp.currentPosition.x; sumY += fp.currentPosition.y; }
         float meanX = sumX / friendlyPieces.Count;
@@ -669,6 +684,30 @@ public class FastGameSimulator
         score += safeZoneCount * w.safeZoneBonus;
 
         return score;
+    }
+
+    private string GetCurrentFriendlyStateHashFast(PlayerSide side)
+    {
+        var pieces = board.GetPiecesOf(side);
+        var positions = pieces.Select(p => p.currentPosition)
+            .OrderBy(c => c.x * 100 + c.y)
+            .Select(c => $"{c.x},{c.y}");
+        return string.Join("|", positions);
+    }
+
+    private string GetProjectedStateHashFast(PieceModel piece, BoardCoord target, bool isCapture)
+    {
+        var pieces = board.GetPiecesOf(piece.owner);
+        var positions = new List<BoardCoord>();
+        foreach (var p in pieces)
+        {
+            if (p.pieceId == piece.pieceId)
+                positions.Add(target);
+            else
+                positions.Add(p.currentPosition);
+        }
+        var sorted = positions.OrderBy(c => c.x * 100 + c.y).Select(c => $"{c.x},{c.y}");
+        return string.Join("|", sorted);
     }
 
     private float GetWorstOpponentResponseFast(PieceModel myPiece, BoardCoord myTarget)
@@ -900,6 +939,9 @@ public class FastGameSimulator
             foreach (var p in board.GetPiecesOf(player))
                 fastTurnStartPositions[p.pieceId] = p.currentPosition;
             fastMoveCount = 0;
+            fastPastStateHashes.Insert(0, GetCurrentFriendlyStateHashFast(player));
+            if (fastPastStateHashes.Count > 5)
+                fastPastStateHashes.RemoveAt(fastPastStateHashes.Count - 1);
 
             int movesAllowed = turnManager.MovesRemaining;
             bool wasCapture = false;
