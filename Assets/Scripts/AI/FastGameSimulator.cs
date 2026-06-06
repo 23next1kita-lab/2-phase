@@ -310,24 +310,43 @@ public class FastGameSimulator
     {
         var placed = new List<PieceModel>();
         var empty = board.GetEmptyCells();
-        var weights = placingPlayer == PlayerSide.Player1 ? p1Weights : p2Weights;
+        var w = placingPlayer == PlayerSide.Player1 ? p1Weights : p2Weights;
 
         int oppSide = placingPlayer == PlayerSide.Player1 ? 0 : rules.boardWidth - 1;
 
         var scored = empty.OrderByDescending(c =>
         {
             float s = 0;
+
             int distFromOpp = Math.Abs(c.x - oppSide);
             s -= distFromOpp;
 
-            if (placingPlayer == PlayerSide.Player1)
+            int centerY = (rules.boardHeight - 1) / 2;
+            s -= Math.Abs(c.y - centerY) * 2;
+
+            var myPieces = board.GetPiecesOf(placingPlayer);
+            foreach (var mp in myPieces)
             {
-                s += c.x * 0.5f;
+                int dx = Math.Abs(c.x - mp.currentPosition.x);
+                int dy = Math.Abs(c.y - mp.currentPosition.y);
+                s -= Math.Max(0, 3 - (dx + dy)) * 5;
             }
-            else
+
+            var oppPieces = board.GetPiecesOf(placingPlayer == PlayerSide.Player1 ? PlayerSide.Player2 : PlayerSide.Player1);
+            foreach (var op in oppPieces)
             {
-                s += (rules.boardWidth - 1 - c.x) * 0.5f;
+                if (op.pieceType != PieceType.TwoPhase) continue;
+                var backDirs = op.GetOppositeFaceDirections();
+                foreach (var d in backDirs)
+                {
+                    var ht = new BoardCoord(op.currentPosition.x + BoardCoordUtil.Offset(d).x,
+                        op.currentPosition.y + BoardCoordUtil.Offset(d).y);
+                    if (ht.Equals(c)) s -= 60;
+                }
             }
+
+            int fwd = placingPlayer == PlayerSide.Player1 ? c.x : (rules.boardWidth - 1 - c.x);
+            s += fwd * (w?.forwardPressure ?? 20f) * 0.3f;
 
             return s;
         }).ToList();
@@ -440,6 +459,49 @@ public class FastGameSimulator
         }
         if (topCount > botCount && target.y > midY) score += w.biasSideStrength;
         else if (botCount > topCount && target.y < midY) score += w.biasSideStrength;
+
+        int forwardDir = piece.owner == PlayerSide.Player1 ? 1 : -1;
+        int advance = (target.x - piece.currentPosition.x) * forwardDir;
+        if (advance > 0)
+            score += advance * w.forwardPressure;
+        else if (advance < 0)
+            score += w.retreatPenalty;
+
+        if (isCapture && occupant != null && occupant.pieceType == PieceType.TwoPhase)
+        {
+            bool canRecapture = false;
+            foreach (var op in oppPieces)
+            {
+                if (moveResolver.GetLegalMovesForPiece(op).Contains(target))
+                { canRecapture = true; break; }
+            }
+            if (!canRecapture)
+                score += w.safeTwoPhaseCapture;
+        }
+
+        if (piece.pieceType == PieceType.TwoPhase)
+        {
+            foreach (var d in new Direction[] { Direction.Up, Direction.Down })
+            {
+                var adj = new BoardCoord(target.x + BoardCoordUtil.Offset(d).x, target.y + BoardCoordUtil.Offset(d).y);
+                if (!board.IsValidCoord(adj)) continue;
+                var adjPiece = board.GetPieceAt(adj);
+                if (adjPiece != null && adjPiece.owner == piece.owner && adjPiece.pieceType == PieceType.TwoPhase)
+                    score += w.twoPhaseWall;
+            }
+        }
+
+        if (piece.pieceType == PieceType.OnePhase)
+        {
+            bool threatened = false;
+            foreach (var op in oppPieces)
+            {
+                if (moveResolver.GetLegalMovesForPiece(op).Contains(target))
+                { threatened = true; break; }
+            }
+            if (threatened && adjFriendly == 0)
+                score += w.exposedOnePhase;
+        }
 
         if (!isCapture)
         {
@@ -649,6 +711,48 @@ public class FastGameSimulator
 
         score += (myReach - oppReach) * 0.1f;
         score += (myPieces.Count - oppPieces.Count) * 0.5f;
+
+        int bw = rules.boardWidth;
+        foreach (var p in myPieces)
+        {
+            int fwd = side == PlayerSide.Player1 ? p.currentPosition.x : (bw - 1 - p.currentPosition.x);
+            score += fwd * w.forwardPressure * 0.05f;
+
+            if (p.pieceType == PieceType.OnePhase)
+            {
+                foreach (var dir in BoardCoordUtil.AllDirections())
+                {
+                    var adj = new BoardCoord(p.currentPosition.x + BoardCoordUtil.Offset(dir).x,
+                        p.currentPosition.y + BoardCoordUtil.Offset(dir).y);
+                    if (!b.IsValidCoord(adj)) continue;
+                    var adjPiece = b.GetPieceAt(adj);
+                    if (adjPiece != null && adjPiece.owner == side && adjPiece.pieceType == PieceType.TwoPhase)
+                    { score += w.shelterBonus * 0.1f; break; }
+                }
+            }
+        }
+
+        foreach (var p in oppPieces)
+        {
+            int fwd = side == PlayerSide.Player1 ? (bw - 1 - p.currentPosition.x) : p.currentPosition.x;
+            score -= fwd * w.forwardPressure * 0.05f;
+        }
+
+        int wallCount = 0;
+        foreach (var p in myPieces)
+        {
+            if (p.pieceType != PieceType.TwoPhase) continue;
+            foreach (var d in new Direction[] { Direction.Up, Direction.Down })
+            {
+                var adj = new BoardCoord(p.currentPosition.x + BoardCoordUtil.Offset(d).x,
+                    p.currentPosition.y + BoardCoordUtil.Offset(d).y);
+                if (!b.IsValidCoord(adj)) continue;
+                var adjPiece = b.GetPieceAt(adj);
+                if (adjPiece != null && adjPiece.owner == side && adjPiece.pieceType == PieceType.TwoPhase)
+                { wallCount++; break; }
+            }
+        }
+        score += wallCount * w.twoPhaseWall * 0.2f;
 
         return score;
     }

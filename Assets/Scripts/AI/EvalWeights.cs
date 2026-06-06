@@ -3,9 +3,9 @@ using System;
 [Serializable]
 public class EvalWeights
 {
-    public float captureTwoPhase = 500f;
+    public float captureTwoPhase = 1000f;
     public float captureOnePhase = 50000f;
-    public float dangerOnePhase = -2000f;
+    public float dangerOnePhase = -3000f;
     public float dangerTwoPhase = -400f;
     public float surroundByOnePhase = 30f;
     public float surroundFriendly = 10f;
@@ -14,7 +14,7 @@ public class EvalWeights
     public float onePhaseMobility = 8f;
     public float twoPhaseMobility = 5f;
     public float forwardPushEarly = 20f;
-    public int earlyTurnCutoff = 3;
+    public int earlyTurnCutoff = 5;
     public float biasSideStrength = 15f;
     public float safeForkCapture = 300f;
     public float riskyForkCapture = 120f;
@@ -32,6 +32,12 @@ public class EvalWeights
     public float pieceCountAdvantage = 100f;
     public float isolationPenalty = -10f;
     public float safeZoneBonus = 700f;
+    public float forwardPressure = 20f;
+    public float shelterBonus = 40f;
+    public float retreatPenalty = -25f;
+    public float safeTwoPhaseCapture = 1000f;
+    public float twoPhaseWall = 15f;
+    public float exposedOnePhase = -100f;
 
     public EvalWeights Clone()
     {
@@ -66,6 +72,12 @@ public class EvalWeights
         MutateField(ref pieceCountAdvantage, 20, 400, rate, sigma);
         MutateField(ref isolationPenalty, -30, 0, rate, sigma);
         MutateField(ref safeZoneBonus, 0, 2000, rate, sigma);
+        MutateField(ref forwardPressure, 5, 50, rate, sigma);
+        MutateField(ref shelterBonus, 10, 100, rate, sigma);
+        MutateField(ref retreatPenalty, -80, -5, rate, sigma);
+        MutateField(ref safeTwoPhaseCapture, 300, 3000, rate, sigma);
+        MutateField(ref twoPhaseWall, 5, 40, rate, sigma);
+        MutateField(ref exposedOnePhase, -300, -30, rate, sigma);
     }
 
     private void MutateField(ref float field, float min, float max, float rate, float sigma)

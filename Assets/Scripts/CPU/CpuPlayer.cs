@@ -262,6 +262,48 @@ public class CpuPlayer : MonoBehaviour
         score += (myReach - oppReach) * 0.1f;
         score += (myPieces.Count - oppPieces.Count) * 0.5f;
 
+        int bw = gm.GameRules.boardWidth;
+        foreach (var p in myPieces)
+        {
+            int fwd = side == PlayerSide.Player1 ? p.currentPosition.x : (bw - 1 - p.currentPosition.x);
+            score += fwd * w.forwardPressure * 0.05f;
+
+            if (p.pieceType == PieceType.OnePhase)
+            {
+                foreach (var dir in BoardCoordUtil.AllDirections())
+                {
+                    var adj = new BoardCoord(p.currentPosition.x + BoardCoordUtil.Offset(dir).x,
+                        p.currentPosition.y + BoardCoordUtil.Offset(dir).y);
+                    if (!board.IsValidCoord(adj)) continue;
+                    var adjPiece = board.GetPieceAt(adj);
+                    if (adjPiece != null && adjPiece.owner == side && adjPiece.pieceType == PieceType.TwoPhase)
+                    { score += w.shelterBonus * 0.1f; break; }
+                }
+            }
+        }
+
+        foreach (var p in oppPieces)
+        {
+            int fwd = side == PlayerSide.Player1 ? (bw - 1 - p.currentPosition.x) : p.currentPosition.x;
+            score -= fwd * w.forwardPressure * 0.05f;
+        }
+
+        int wallCount = 0;
+        foreach (var p in myPieces)
+        {
+            if (p.pieceType != PieceType.TwoPhase) continue;
+            foreach (var d in new Direction[] { Direction.Up, Direction.Down })
+            {
+                var adj = new BoardCoord(p.currentPosition.x + BoardCoordUtil.Offset(d).x,
+                    p.currentPosition.y + BoardCoordUtil.Offset(d).y);
+                if (!board.IsValidCoord(adj)) continue;
+                var adjPiece = board.GetPieceAt(adj);
+                if (adjPiece != null && adjPiece.owner == side && adjPiece.pieceType == PieceType.TwoPhase)
+                { wallCount++; break; }
+            }
+        }
+        score += wallCount * w.twoPhaseWall * 0.2f;
+
         return score;
     }
 
@@ -353,6 +395,49 @@ public class CpuPlayer : MonoBehaviour
         }
         if (topCount > botCount && target.y > midY) score += w.biasSideStrength;
         else if (botCount > topCount && target.y < midY) score += w.biasSideStrength;
+
+        int forwardDir = piece.owner == PlayerSide.Player1 ? 1 : -1;
+        int advance = (target.x - piece.currentPosition.x) * forwardDir;
+        if (advance > 0)
+            score += advance * w.forwardPressure;
+        else if (advance < 0)
+            score += w.retreatPenalty;
+
+        if (isCapture && occupant != null && occupant.pieceType == PieceType.TwoPhase)
+        {
+            bool canRecapture = false;
+            foreach (var op in opponentPieces)
+            {
+                if (moveResolver.GetLegalMovesForPiece(op).Contains(target))
+                { canRecapture = true; break; }
+            }
+            if (!canRecapture)
+                score += w.safeTwoPhaseCapture;
+        }
+
+        if (piece.pieceType == PieceType.TwoPhase)
+        {
+            foreach (var d in new Direction[] { Direction.Up, Direction.Down })
+            {
+                var adj = new BoardCoord(target.x + BoardCoordUtil.Offset(d).x, target.y + BoardCoordUtil.Offset(d).y);
+                if (!gm.BoardState.IsValidCoord(adj)) continue;
+                var adjPiece = gm.BoardState.GetPieceAt(adj);
+                if (adjPiece != null && adjPiece.owner == piece.owner && adjPiece.pieceType == PieceType.TwoPhase)
+                    score += w.twoPhaseWall;
+            }
+        }
+
+        if (piece.pieceType == PieceType.OnePhase)
+        {
+            bool threatened = false;
+            foreach (var op in opponentPieces)
+            {
+                if (moveResolver.GetLegalMovesForPiece(op).Contains(target))
+                { threatened = true; break; }
+            }
+            if (threatened && adjacentFriendlies == 0)
+                score += w.exposedOnePhase;
+        }
 
         if (!isCapture)
         {
