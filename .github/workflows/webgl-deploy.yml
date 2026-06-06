@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
         with:
@@ -15,47 +15,17 @@ jobs:
 
       - name: Build WebGL
         run: |
-          docker run --rm \
-            -e UNITY_EMAIL="${{ secrets.UNITY_EMAIL }}" \
-            -e UNITY_PASSWORD="${{ secrets.UNITY_PASSWORD }}" \
-            -v "$PWD":/workspace \
-            -w /workspace \
-            unityci/editor:ubuntu-6000.4.1f1-webgl-3 \
-            /bin/bash -c '\
-              mkdir -p /BlankProject/Assets && \
-              echo "=== Step 1: Activate license ===" && \
-              unity-editor \
-                -quit -batchmode \
-                -serial \
-                -username "$UNITY_EMAIL" \
-                -password "$UNITY_PASSWORD" \
-                -projectPath /BlankProject \
-                -logFile /tmp/activation.log \
-                2>&1; \
-              echo "=== Activation log (first 60 lines) ===" && \
-              head -60 /tmp/activation.log 2>/dev/null; \
-              echo "=== Step 2: Check license files ===" && \
-              find /root -name "UnityEntitlementLicense.xml" 2>/dev/null; \
-              find /root -name "*.ulf" 2>/dev/null; \
-              find /root/.local/share/unity3d -type f 2>/dev/null || true; \
-              find /root/.config/unity3d -type f 2>/dev/null || true; \
-              echo "=== Step 3: Build ===" && \
-              unity-editor \
-                -quit -batchmode \
-                -nographics \
-                -projectPath /workspace \
-                -executeMethod BuildWebGL.Build \
-                -logFile /tmp/build.log \
-                2>&1; \
-              EXIT_CODE=$?; \
-              echo "EXIT_CODE=$EXIT_CODE"; \
-              echo "=== Build log (last 30) ===" && \
-              tail -30 /tmp/build.log 2>/dev/null || true; \
-              exit $EXIT_CODE; \
-            '
+          & "C:\Program Files\Unity\Hub\Editor\Unity 6000.4.1f1\Editor\Unity.exe" ^
+            -quit -batchmode ^
+            -projectPath "$env:GITHUB_WORKSPACE" ^
+            -executeMethod BuildWebGL.Build ^
+            -logFile build.log
+          $exitCode = $LASTEXITCODE
+          Get-Content build.log -Tail 30
+          if ($exitCode -ne 0) { exit $exitCode }
 
       - name: Check build output
-        run: ls -la Builds/WebGL/ || echo "Build directory not found"
+        run: Get-ChildItem -Path Builds/WebGL -ErrorAction SilentlyContinue | Select-Object Name
 
       - uses: actions/upload-pages-artifact@v3
         with:
