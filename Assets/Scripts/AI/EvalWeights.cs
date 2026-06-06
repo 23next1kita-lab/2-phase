@@ -43,6 +43,7 @@ public class EvalWeights
     public float openingAdvanceBonus = 2000f;
     public float twoPhaseThreat = 5000f;
     public float secondMoveCaptureBonus = 8000f;
+    public float safeThreatBonus = 10000f;
 
     public EvalWeights Clone()
     {
@@ -88,6 +89,7 @@ public class EvalWeights
         MutateField(ref openingAdvanceBonus, 200, 8000, rate, sigma);
         MutateField(ref twoPhaseThreat, 500, 20000, rate, sigma);
         MutateField(ref secondMoveCaptureBonus, 500, 30000, rate, sigma);
+        MutateField(ref safeThreatBonus, 1000, 40000, rate, sigma);
     }
 
     private void MutateField(ref float field, float min, float max, float rate, float sigma)

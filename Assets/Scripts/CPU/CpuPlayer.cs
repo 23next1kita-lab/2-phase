@@ -181,6 +181,7 @@ public class CpuPlayer : MonoBehaviour
             foreach (var m in moves)
             {
                 float baseScore = EvaluateMoveV4(p, m);
+                baseScore += CalculateSafeThreatBonus(p, m, gm.BoardState, w);
                 float lookAheadScore = EvaluateLookAhead(p, m, w);
                 candidates.Add((p, m, baseScore + lookAheadScore));
             }
@@ -251,6 +252,33 @@ public class CpuPlayer : MonoBehaviour
 
         if (bestOppScore == float.MinValue) return ourPosScore;
         return ourPosScore - bestOppScore;
+    }
+
+    private float CalculateSafeThreatBonus(PieceModel piece, BoardCoord target, BoardState boardState, EvalWeights w)
+    {
+        var afterDirs = piece.pieceType == PieceType.TwoPhase
+            ? PieceModel.TransformDirections(piece.GetCurrentFaceDirections(),
+                GetMoveDirection(piece.currentPosition, target))
+            : piece.GetCurrentFaceDirections();
+        bool canCaptureNext = false;
+        foreach (var d in afterDirs)
+        {
+            var next = new BoardCoord(target.x + BoardCoordUtil.Offset(d).x,
+                target.y + BoardCoordUtil.Offset(d).y);
+            if (!boardState.IsValidCoord(next)) continue;
+            var nextOcc = boardState.GetPieceAt(next);
+            if (nextOcc != null && nextOcc.owner != piece.owner)
+            { canCaptureNext = true; break; }
+        }
+        if (!canCaptureNext) return 0;
+        var opponent = piece.owner == PlayerSide.Player1 ? PlayerSide.Player2 : PlayerSide.Player1;
+        var oppPieces = boardState.GetPiecesOf(opponent);
+        foreach (var op in oppPieces)
+        {
+            if (moveResolver.GetLegalMovesForPiece(op).Contains(target))
+                return 0;
+        }
+        return w.safeThreatBonus;
     }
 
     private float EvaluatePosition(BoardState board, PlayerSide side, MoveResolver resolver, EvalWeights w)

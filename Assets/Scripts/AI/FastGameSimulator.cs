@@ -729,6 +729,33 @@ public class FastGameSimulator
         return ourPosScore - bestOppScore;
     }
 
+    private float CalculateSafeThreatBonusFast(PieceModel piece, BoardCoord target, EvalWeights w)
+    {
+        var afterDirs = piece.pieceType == PieceType.TwoPhase
+            ? PieceModel.TransformDirections(piece.GetCurrentFaceDirections(),
+                GetMoveDirection(piece.currentPosition, target))
+            : piece.GetCurrentFaceDirections();
+        bool canCaptureNext = false;
+        foreach (var d in afterDirs)
+        {
+            var next = new BoardCoord(target.x + BoardCoordUtil.Offset(d).x,
+                target.y + BoardCoordUtil.Offset(d).y);
+            if (!board.IsValidCoord(next)) continue;
+            var nextOcc = board.GetPieceAt(next);
+            if (nextOcc != null && nextOcc.owner != piece.owner)
+            { canCaptureNext = true; break; }
+        }
+        if (!canCaptureNext) return 0;
+        var opponent = piece.owner == PlayerSide.Player1 ? PlayerSide.Player2 : PlayerSide.Player1;
+        var oppPieces = board.GetPiecesOf(opponent);
+        foreach (var op in oppPieces)
+        {
+            if (moveResolver.GetLegalMovesForPiece(op).Contains(target))
+                return 0;
+        }
+        return w.safeThreatBonus;
+    }
+
     private float EvaluatePositionFast(BoardState b, PlayerSide side, MoveResolver resolver, EvalWeights w)
     {
         float score = 0;
@@ -923,6 +950,7 @@ public class FastGameSimulator
             {
                 float lookAhead = EvaluateLookAheadFast(m.piece, m.target, w);
                 sc += lookAhead;
+                sc += CalculateSafeThreatBonusFast(m.piece, m.target, w);
             }
 
             if (best == null || sc > best.Value.score)
