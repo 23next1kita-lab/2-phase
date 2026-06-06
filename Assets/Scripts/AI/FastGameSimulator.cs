@@ -252,6 +252,8 @@ public class FastGameSimulator
 
                 if (best == null || sc > best.Value.score)
                     best = (p, t, sc, isCap);
+                else if (sc == best.Value.score && UnityEngine.Random.value < 0.5f)
+                    best = (p, t, sc, isCap);
             }
         }
 
@@ -1026,6 +1028,8 @@ public class FastGameSimulator
             }
 
             if (best == null || sc > best.Value.score)
+                best = (m.piece, m.target, sc, m.isCapture);
+            else if (sc == best.Value.score && UnityEngine.Random.value < 0.5f)
                 best = (m.piece, m.target, sc, m.isCapture);
         }
         return best;

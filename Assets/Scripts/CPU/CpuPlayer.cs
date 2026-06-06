@@ -165,7 +165,7 @@ public class CpuPlayer : MonoBehaviour
             }
         }
 
-        var best = candidates.OrderByDescending(c => c.Item3).First();
+        var best = candidates.OrderByDescending(c => c.Item3).ThenBy(c => Random.value).First();
         return (best.Item1, best.Item2);
     }
 
@@ -183,7 +183,7 @@ public class CpuPlayer : MonoBehaviour
             }
         }
 
-        var best = candidates.OrderByDescending(c => c.Item3).First();
+        var best = candidates.OrderByDescending(c => c.Item3).ThenBy(c => Random.value).First();
         return (best.Item1, best.Item2);
     }
 
@@ -204,7 +204,7 @@ public class CpuPlayer : MonoBehaviour
             }
         }
 
-        var best = candidates.OrderByDescending(c => c.Item3).First();
+        var best = candidates.OrderByDescending(c => c.Item3).ThenBy(c => Random.value).First();
         return (best.Item1, best.Item2);
     }
 
