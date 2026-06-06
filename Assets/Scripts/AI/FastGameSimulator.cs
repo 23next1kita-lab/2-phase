@@ -1,0 +1,692 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+public class FastGameSimulator
+{
+    private GameRulesSO rules;
+    private BoardState board;
+    private TurnManager turnManager;
+    private MoveResolver moveResolver;
+    private CaptureResolver captureResolver;
+    private PlacementResolver placementResolver;
+    private EvalWeights p1Weights;
+    private EvalWeights p2Weights;
+    private PlayerSide? winner;
+    private RepetitionDetector repDetector;
+    private bool isDraw;
+    private int captureCount;
+
+    public int CaptureCount => captureCount;
+    public PlayerSide? Winner => winner;
+
+    public PlayerSide? Simulate(EvalWeights w1, EvalWeights w2, int maxTurns = 100)
+    {
+        p1Weights = w1;
+        p2Weights = w2;
+        InitializeGame();
+        var result = RunLoop(maxTurns);
+        return result;
+    }
+
+    private void InitializeGame()
+    {
+        rules = ScriptableObject.CreateInstance<GameRulesSO>();
+        rules.boardWidth = 7;
+        rules.boardHeight = 7;
+        rules.firstTurnMoveCount = 1;
+        rules.normalTurnMoveCount = 2;
+        rules.allowSamePieceTwicePerTurn = true;
+        rules.captureEndsTurnImmediately = true;
+
+        board = new BoardState(rules.boardWidth, rules.boardHeight);
+        turnManager = new TurnManager(rules, silent: true);
+        moveResolver = new MoveResolver(board, rules, silent: true);
+        captureResolver = new CaptureResolver(board, rules, silent: true);
+        placementResolver = new PlacementResolver(board, rules, silent: true);
+        winner = null;
+        isDraw = false;
+        captureCount = 0;
+        repDetector = new RepetitionDetector();
+
+        PlaceDefaultPieces();
+
+        repDetector.RecordAndCheck(board, turnManager.CurrentPlayer, turnManager.TurnNumber);
+    }
+
+    private void PlaceDefaultPieces()
+    {
+        int h = rules.boardHeight;
+        int w = rules.boardWidth;
+
+        var presets = rules.randomPieceDirections
+            ? GenerateRandomPresets()
+            : GetDefaultPresets();
+
+        for (int y = 0; y < h; y++)
+        {
+            var p = presets[y];
+            var front = p.front;
+            var back = p.back;
+            int id = board.GeneratePieceId();
+            var piece = new PieceModel(id, PlayerSide.Player1, PieceType.TwoPhase,
+                new BoardCoord(0, y), front, back, true);
+            board.AddPiece(piece);
+        }
+
+        for (int y = 0; y < h; y++)
+        {
+            var p = presets[y];
+            int id = board.GeneratePieceId();
+            var piece = new PieceModel(id, PlayerSide.Player2, PieceType.TwoPhase,
+                new BoardCoord(w - 1, y), MirrorDirs(p.front), MirrorDirs(p.back), true);
+            board.AddPiece(piece);
+        }
+    }
+
+    private (List<Direction> front, List<Direction> back)[] GetDefaultPresets()
+    {
+        return new (List<Direction> front, List<Direction> back)[]
+        {
+            (new List<Direction>{ Direction.Right, Direction.UpRight, Direction.UpLeft }, new List<Direction>{ Direction.Up, Direction.DownLeft, Direction.UpLeft }),
+            (new List<Direction>{ Direction.DownRight, Direction.Right, Direction.UpRight, Direction.Left }, new List<Direction>{ Direction.DownLeft, Direction.Down, Direction.DownRight, Direction.Up }),
+            (new List<Direction>{ Direction.Right, Direction.UpRight, Direction.DownRight, Direction.Up, Direction.DownLeft }, new List<Direction>{ Direction.Left, Direction.UpLeft, Direction.DownLeft, Direction.Up, Direction.DownRight }),
+            (new List<Direction>{ Direction.UpRight, Direction.Right, Direction.DownRight, Direction.UpLeft, Direction.Left, Direction.DownLeft }, new List<Direction>{ Direction.UpRight, Direction.Up, Direction.UpLeft, Direction.DownRight, Direction.Down, Direction.DownLeft }),
+            (new List<Direction>{ Direction.Right, Direction.DownRight, Direction.UpRight, Direction.Down, Direction.UpLeft }, new List<Direction>{ Direction.Left, Direction.DownLeft, Direction.UpLeft, Direction.Down, Direction.UpRight }),
+            (new List<Direction>{ Direction.UpRight, Direction.Right, Direction.DownRight, Direction.Left }, new List<Direction>{ Direction.UpLeft, Direction.Up, Direction.UpRight, Direction.Down }),
+            (new List<Direction>{ Direction.Right, Direction.DownRight, Direction.DownLeft }, new List<Direction>{ Direction.Up, Direction.UpLeft, Direction.DownLeft }),
+        };
+    }
+
+    private (List<Direction> front, List<Direction> back)[] GenerateRandomPresets()
+    {
+        int count = rules.boardHeight;
+        var allDirs = new List<Direction>((Direction[])System.Enum.GetValues(typeof(Direction)));
+        var presets = new (List<Direction> front, List<Direction> back)[count];
+
+        for (int i = 0; i < count; i++)
+        {
+            var front = PickRandomDirections(allDirs, UnityEngine.Random.Range(1, 5));
+            var back = PickRandomDirections(allDirs, UnityEngine.Random.Range(1, 5));
+            presets[i] = (front, back);
+        }
+
+        return presets;
+    }
+
+    private List<Direction> PickRandomDirections(List<Direction> candidates, int count)
+    {
+        var shuffled = new List<Direction>(candidates);
+        for (int i = 0; i < shuffled.Count; i++)
+        {
+            int j = UnityEngine.Random.Range(i, shuffled.Count);
+            var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+        }
+        return shuffled.GetRange(0, Mathf.Min(count, shuffled.Count));
+    }
+
+    private List<Direction> MirrorDirs(List<Direction> dirs)
+    {
+        return dirs.Select(d =>
+        {
+            switch (d)
+            {
+                case Direction.Right: return Direction.Left;
+                case Direction.Left: return Direction.Right;
+                case Direction.UpRight: return Direction.UpLeft;
+                case Direction.UpLeft: return Direction.UpRight;
+                case Direction.DownRight: return Direction.DownLeft;
+                case Direction.DownLeft: return Direction.DownRight;
+                default: return d;
+            }
+        }).ToList();
+    }
+
+    private PlayerSide? RunLoop(int maxTurns)
+    {
+        for (int t = 0; t < maxTurns; t++)
+        {
+            if (winner.HasValue) return winner.Value;
+            if (isDraw) return null;
+
+            var player = turnManager.CurrentPlayer;
+            var weights = player == PlayerSide.Player1 ? p1Weights : p2Weights;
+
+            int movesAllowed = turnManager.MovesRemaining;
+            bool wasCapture = false;
+
+            for (int m = 0; m < movesAllowed; m++)
+            {
+                if (winner.HasValue) return winner.Value;
+                if (isDraw) return null;
+
+                var movable = GetMovablePieces(player);
+                if (movable.Count == 0) break;
+
+                var best = PickBestMove(movable, weights);
+                if (best == null) break;
+
+                wasCapture = ExecuteMove(best.Value.piece, best.Value.target, player);
+                if (wasCapture) break;
+                if (winner.HasValue) return winner.Value;
+                if (isDraw) return null;
+
+                turnManager.OnMoveCompleted(best.Value.piece);
+            }
+
+            if (!winner.HasValue && !wasCapture)
+            {
+                foreach (var p in board.GetAllPieces())
+                {
+                    p.spawnedThisTurn = false;
+                }
+                turnManager.StartNextTurn();
+                foreach (var p in board.GetAllPieces())
+                {
+                    if (p.owner == turnManager.CurrentPlayer)
+                        p.canActThisTurn = true;
+                }
+
+                if (repDetector.RecordAndCheck(board, turnManager.CurrentPlayer, turnManager.TurnNumber))
+                {
+                    return null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private List<(PieceModel piece, BoardCoord target, float score, bool isCapture)> GetAllMoves(PlayerSide player)
+    {
+        var moves = new List<(PieceModel, BoardCoord, float, bool)>();
+        var pieces = board.GetPiecesOf(player);
+        foreach (var p in pieces)
+        {
+            if (!p.canActThisTurn || p.spawnedThisTurn) continue;
+            var legals = moveResolver.GetLegalMovesForPiece(p);
+            foreach (var t in legals)
+            {
+                var occ = board.GetPieceAt(t);
+                bool isCap = occ != null && occ.owner != p.owner;
+                moves.Add((p, t, 0, isCap));
+            }
+        }
+        return moves;
+    }
+
+    private (PieceModel piece, BoardCoord target, float score, bool isCapture)? PickBestMove(
+        List<PieceModel> pieces, EvalWeights w)
+    {
+        (PieceModel piece, BoardCoord target, float score, bool isCapture)? best = null;
+
+        foreach (var p in pieces)
+        {
+            var legals = moveResolver.GetLegalMovesForPiece(p);
+            foreach (var t in legals)
+            {
+                var occ = board.GetPieceAt(t);
+                bool isCap = occ != null && occ.owner != p.owner;
+                float sc = EvaluateMoveFast(p, t, w);
+
+                if (w.opponentResponseFactor > 0.01f)
+                {
+                    float threat = GetWorstOpponentResponseFast(p, t);
+                    sc -= threat * w.opponentResponseFactor;
+                }
+
+                if (best == null || sc > best.Value.score)
+                    best = (p, t, sc, isCap);
+            }
+        }
+
+        return best;
+    }
+
+    private bool ExecuteMove(PieceModel piece, BoardCoord target, PlayerSide player)
+    {
+        var occupant = board.GetPieceAt(target);
+        bool hasOpponent = occupant != null && occupant.owner != piece.owner;
+
+        if (hasOpponent)
+        {
+            captureCount++;
+            board.RemovePiece(occupant);
+
+            Direction moveDir = GetMoveDirection(piece.currentPosition, target);
+            moveResolver.ApplyMove(piece, target);
+
+            if (piece.pieceType == PieceType.TwoPhase)
+                moveResolver.ApplyFlip(piece, moveDir);
+
+            var result = captureResolver.ResolveCaptureWithCaptured(occupant, piece.owner);
+
+            if (result.isGameOver)
+            {
+                winner = result.winner;
+                return true;
+            }
+
+            if (result.needsSplitPlacement && result.splitPieces != null)
+            {
+                var splitOwner = result.splitPieces[0].owner;
+                var placed = AutoPlaceSplitPieces(result.splitPieces, splitOwner);
+                foreach (var sp in placed)
+                {
+                    sp.spawnedThisTurn = true;
+                    placementResolver.PlaceSplitPiece(sp, sp.currentPosition, sp.GetCurrentFaceDirections());
+                }
+            }
+
+            var nextPlayer = player == PlayerSide.Player1 ? PlayerSide.Player2 : PlayerSide.Player1;
+            turnManager.StartNextTurn();
+            foreach (var p in board.GetAllPieces())
+            {
+                if (p.owner == nextPlayer && !p.spawnedThisTurn)
+                    p.canActThisTurn = true;
+            }
+
+            if (repDetector.RecordAndCheck(board, turnManager.CurrentPlayer, turnManager.TurnNumber))
+            {
+                isDraw = true;
+                return true;
+            }
+
+            return true;
+        }
+
+        Direction moveDir2 = GetMoveDirection(piece.currentPosition, target);
+        moveResolver.ApplyMove(piece, target);
+
+        if (piece.pieceType == PieceType.TwoPhase)
+            moveResolver.ApplyFlip(piece, moveDir2);
+
+        return false;
+    }
+
+    private List<PieceModel> AutoPlaceSplitPieces(List<PieceModel> splitPieces, PlayerSide placingPlayer)
+    {
+        var placed = new List<PieceModel>();
+        var empty = board.GetEmptyCells();
+        var weights = placingPlayer == PlayerSide.Player1 ? p1Weights : p2Weights;
+
+        int oppSide = placingPlayer == PlayerSide.Player1 ? 0 : rules.boardWidth - 1;
+
+        var scored = empty.OrderByDescending(c =>
+        {
+            float s = 0;
+            int distFromOpp = Math.Abs(c.x - oppSide);
+            s -= distFromOpp;
+
+            if (placingPlayer == PlayerSide.Player1)
+            {
+                s += c.x * 0.5f;
+            }
+            else
+            {
+                s += (rules.boardWidth - 1 - c.x) * 0.5f;
+            }
+
+            return s;
+        }).ToList();
+
+        for (int i = 0; i < Math.Min(splitPieces.Count, scored.Count); i++)
+        {
+            var piece = splitPieces[i];
+            var coord = scored[i];
+            piece.SetPosition(coord);
+            placed.Add(piece);
+        }
+
+        return placed;
+    }
+
+    private List<PieceModel> GetMovablePieces(PlayerSide player)
+    {
+        var pieces = board.GetPiecesOf(player);
+        var result = new List<PieceModel>();
+        foreach (var p in pieces)
+        {
+            if (p.canActThisTurn && !p.spawnedThisTurn && moveResolver.GetLegalMovesForPiece(p).Count > 0)
+                result.Add(p);
+        }
+        return result;
+    }
+
+    private float EvaluateMoveFast(PieceModel piece, BoardCoord target, EvalWeights w)
+    {
+        float score = 0;
+        var opponent = piece.owner == PlayerSide.Player1 ? PlayerSide.Player2 : PlayerSide.Player1;
+        var occupant = board.GetPieceAt(target);
+        bool isCapture = occupant != null && occupant.owner != piece.owner;
+
+        if (isCapture)
+        {
+            score += occupant.pieceType == PieceType.OnePhase ? w.captureOnePhase : w.captureTwoPhase;
+        }
+
+        var afterDirs = piece.pieceType == PieceType.TwoPhase
+            ? PieceModel.TransformDirections(piece.GetCurrentFaceDirections(),
+                GetMoveDirection(piece.currentPosition, target))
+            : piece.GetCurrentFaceDirections();
+
+        var oppPieces = board.GetPiecesOf(opponent);
+        foreach (var op in oppPieces)
+        {
+            var opMoves = moveResolver.GetLegalMovesForPiece(op);
+            if (opMoves.Contains(target))
+            {
+                score += piece.pieceType == PieceType.OnePhase ? w.dangerOnePhase : w.dangerTwoPhase;
+            }
+        }
+
+        var friendlyPieces = board.GetPiecesOf(piece.owner);
+        int adjOnePhase = 0, adjFriendly = 0;
+        foreach (var fp in friendlyPieces)
+        {
+            if (fp.pieceId == piece.pieceId) continue;
+            int dx = Math.Abs(target.x - fp.currentPosition.x);
+            int dy = Math.Abs(target.y - fp.currentPosition.y);
+            if (dx + dy == 1)
+            {
+                adjFriendly++;
+                if (fp.pieceType == PieceType.OnePhase) adjOnePhase++;
+            }
+        }
+        if (piece.pieceType == PieceType.TwoPhase)
+            score += adjOnePhase * w.surroundByOnePhase + adjFriendly * w.surroundFriendly;
+        else
+            score += adjFriendly * w.onePhaseSurroundFriendly;
+
+        float avgDist = 0;
+        int fCount = 0;
+        foreach (var fp in friendlyPieces)
+        {
+            if (fp.pieceId == piece.pieceId) continue;
+            avgDist += Math.Abs(target.x - fp.currentPosition.x) + Math.Abs(target.y - fp.currentPosition.y);
+            fCount++;
+        }
+        if (fCount > 0)
+        {
+            avgDist /= fCount;
+            score += avgDist * w.groupCohesion;
+        }
+
+        int mobility = 0;
+        foreach (var d in afterDirs)
+        {
+            var next = new BoardCoord(target.x + BoardCoordUtil.Offset(d).x,
+                target.y + BoardCoordUtil.Offset(d).y);
+            if (board.IsValidCoord(next) && board.GetPieceAt(next) == null)
+                mobility++;
+        }
+        score += (piece.pieceType == PieceType.OnePhase ? w.onePhaseMobility : w.twoPhaseMobility) * mobility;
+
+        int turnNum = turnManager?.TurnNumber ?? 0;
+        if (turnNum <= w.earlyTurnCutoff)
+        {
+            int forward = piece.owner == PlayerSide.Player1 ? 1 : -1;
+            score += (target.x - piece.currentPosition.x) * forward * w.forwardPushEarly;
+        }
+
+        int midY = (rules.boardHeight - 1) / 2;
+        int topCount = 0, botCount = 0;
+        foreach (var fp in friendlyPieces)
+        {
+            if (fp.currentPosition.y > midY) topCount++;
+            else if (fp.currentPosition.y < midY) botCount++;
+        }
+        if (topCount > botCount && target.y > midY) score += w.biasSideStrength;
+        else if (botCount > topCount && target.y < midY) score += w.biasSideStrength;
+
+        if (!isCapture)
+        {
+            foreach (var d in afterDirs)
+            {
+                var next = new BoardCoord(target.x + BoardCoordUtil.Offset(d).x,
+                    target.y + BoardCoordUtil.Offset(d).y);
+                if (!board.IsValidCoord(next)) continue;
+                var nextOcc = board.GetPieceAt(next);
+                if (nextOcc != null && nextOcc.owner == opponent)
+                {
+                    bool safe = true;
+                    foreach (var op in oppPieces)
+                    {
+                        if (op.pieceId == nextOcc.pieceId) continue;
+                        if (moveResolver.GetLegalMovesForPiece(op).Contains(next))
+                        { safe = false; break; }
+                    }
+                    score += safe ? w.safeForkCapture : w.riskyForkCapture;
+                }
+            }
+        }
+
+        foreach (var op in oppPieces)
+        {
+            if (op.pieceType != PieceType.TwoPhase) continue;
+            var hidden = op.GetOppositeFaceDirections();
+            foreach (var d in hidden)
+            {
+                var ht = new BoardCoord(op.currentPosition.x + BoardCoordUtil.Offset(d).x,
+                    op.currentPosition.y + BoardCoordUtil.Offset(d).y);
+                if (ht.Equals(target))
+                    score += piece.pieceType == PieceType.OnePhase ? w.hiddenFaceOnePhase : w.hiddenFaceTwoPhase;
+            }
+        }
+
+        float distCenter = Math.Abs(target.x - (rules.boardWidth - 1) / 2)
+            + Math.Abs(target.y - (rules.boardHeight - 1) / 2);
+        score += distCenter * w.centerWeight;
+
+        if (piece.spawnedThisTurn)
+            score += w.spawnedTurnPenalty;
+
+        if (repDetector.WouldRepeatAfterMove(board, turnManager.CurrentPlayer, turnManager.TurnNumber,
+            piece, target, isCapture))
+            score += w.repetitionPenalty;
+
+        int myReach = 0, oppReach = 0;
+        foreach (var fp in friendlyPieces)
+            myReach += moveResolver.GetLegalMovesForPiece(fp).Count;
+        foreach (var op in oppPieces)
+            oppReach += moveResolver.GetLegalMovesForPiece(op).Count;
+        score += (myReach - oppReach) * w.territoryControl;
+
+        score += (friendlyPieces.Count - oppPieces.Count) * w.pieceCountAdvantage;
+
+        int isoPenalty = 0;
+        foreach (var fp in friendlyPieces)
+        {
+            int minDist = 999;
+            foreach (var fp2 in friendlyPieces)
+            {
+                if (fp2.pieceId == fp.pieceId) continue;
+                int d = Math.Abs(fp.currentPosition.x - fp2.currentPosition.x)
+                      + Math.Abs(fp.currentPosition.y - fp2.currentPosition.y);
+                if (d < minDist) minDist = d;
+            }
+            if (minDist < 999)
+                isoPenalty += minDist;
+        }
+        score += isoPenalty * w.isolationPenalty;
+
+        return score;
+    }
+
+    private float GetWorstOpponentResponseFast(PieceModel myPiece, BoardCoord myTarget)
+    {
+        var opponent = myPiece.owner == PlayerSide.Player1 ? PlayerSide.Player2 : PlayerSide.Player1;
+        float worstScore = float.MinValue;
+        var oppPieces = board.GetPiecesOf(opponent);
+
+        foreach (var op in oppPieces)
+        {
+            if (op.spawnedThisTurn) continue;
+            var opMoves = moveResolver.GetLegalMovesForPiece(op);
+            foreach (var om in opMoves)
+            {
+                float threat = 0;
+                var occ = board.GetPieceAt(om);
+                if (occ != null && occ.owner == myPiece.owner)
+                {
+                    threat += occ.pieceType == PieceType.OnePhase ? 8000 : 500;
+                }
+                if (threat > worstScore) worstScore = threat;
+            }
+        }
+
+        return worstScore > 0 ? worstScore : 0;
+    }
+
+    private Direction GetMoveDirection(BoardCoord from, BoardCoord to)
+    {
+        int dx = to.x - from.x;
+        int dy = to.y - from.y;
+        foreach (var d in BoardCoordUtil.AllDirections())
+        {
+            var off = BoardCoordUtil.Offset(d);
+            if (off.x == dx && off.y == dy) return d;
+        }
+        return Direction.Right;
+    }
+
+    public PlayerSide? SimulateLevels(EvalWeights w, int p1Level, int p2Level, int maxTurns = 100)
+    {
+        p1Weights = w;
+        p2Weights = w;
+        InitializeGame();
+        return RunLoopLevels(p1Level, p2Level, maxTurns);
+    }
+
+    private PlayerSide? RunLoopLevels(int p1Level, int p2Level, int maxTurns)
+    {
+        for (int t = 0; t < maxTurns; t++)
+        {
+            if (winner.HasValue) return winner.Value;
+            if (isDraw) return null;
+
+            var player = turnManager.CurrentPlayer;
+            int level = player == PlayerSide.Player1 ? p1Level : p2Level;
+            var weights = player == PlayerSide.Player1 ? p1Weights : p2Weights;
+
+            int movesAllowed = turnManager.MovesRemaining;
+            bool wasCapture = false;
+
+            for (int m = 0; m < movesAllowed; m++)
+            {
+                if (winner.HasValue) return winner.Value;
+                if (isDraw) return null;
+
+                var movable = GetMovablePieces(player);
+                if (movable.Count == 0) break;
+
+                var best = PickMoveByLevel(movable, weights, level);
+                if (best == null) break;
+
+                wasCapture = ExecuteMove(best.Value.piece, best.Value.target, player);
+                if (wasCapture) break;
+                if (winner.HasValue) return winner.Value;
+                if (isDraw) return null;
+
+                turnManager.OnMoveCompleted(best.Value.piece);
+            }
+
+            if (!winner.HasValue && !wasCapture)
+            {
+                foreach (var p in board.GetAllPieces()) p.spawnedThisTurn = false;
+                turnManager.StartNextTurn();
+                foreach (var p in board.GetAllPieces())
+                    if (p.owner == turnManager.CurrentPlayer) p.canActThisTurn = true;
+                if (repDetector.RecordAndCheck(board, turnManager.CurrentPlayer, turnManager.TurnNumber))
+                    return null;
+            }
+        }
+        return null;
+    }
+
+    private (PieceModel piece, BoardCoord target, float score, bool isCapture)? PickMoveByLevel(
+        List<PieceModel> pieces, EvalWeights w, int level)
+    {
+        var allMoves = new List<(PieceModel piece, BoardCoord target, bool isCapture)>();
+        foreach (var p in pieces)
+        {
+            var legals = moveResolver.GetLegalMovesForPiece(p);
+            foreach (var t in legals)
+            {
+                var occ = board.GetPieceAt(t);
+                bool isCap = occ != null && occ.owner != p.owner;
+                allMoves.Add((p, t, isCap));
+            }
+        }
+        if (allMoves.Count == 0) return null;
+
+        if (level == 1)
+        {
+            var rnd = allMoves[UnityEngine.Random.Range(0, allMoves.Count)];
+            return (rnd.piece, rnd.target, 0f, rnd.isCapture);
+        }
+
+        if (level == 2)
+        {
+            var captures = allMoves.Where(m => m.isCapture).ToList();
+            if (captures.Count > 0)
+            {
+                var c = captures[UnityEngine.Random.Range(0, captures.Count)];
+                return (c.piece, c.target, 0f, true);
+            }
+            var r = allMoves[UnityEngine.Random.Range(0, allMoves.Count)];
+            return (r.piece, r.target, 0f, false);
+        }
+
+        (PieceModel piece, BoardCoord target, float score, bool isCapture)? best = null;
+        foreach (var m in allMoves)
+        {
+            float sc = EvaluateMoveFast(m.piece, m.target, w);
+
+            if (level >= 4 && w.opponentResponseFactor > 0.01f)
+            {
+                float threat = GetWorstOpponentResponseFast(m.piece, m.target);
+                sc -= threat * w.opponentResponseFactor;
+            }
+
+            if (best == null || sc > best.Value.score)
+                best = (m.piece, m.target, sc, m.isCapture);
+        }
+        return best;
+    }
+
+    public static void TestCpuLevels()
+    {
+        var w = WeightEvolution.LoadBestWeights();
+        if (w == null) { Debug.LogError("[Test] No best_weights.json found"); return; }
+
+        var sim = new FastGameSimulator();
+        int gamesPerMatch = 10;
+
+        Debug.Log("[Test] === CPU Level Validation ===");
+        Debug.Log($"[Test] Weights loaded: capture1P={w.captureOnePhase:F0} capture2P={w.captureTwoPhase:F0}");
+
+        for (int a = 1; a <= 4; a++)
+        {
+            for (int b = a + 1; b <= 4; b++)
+            {
+                int aWins = 0, bWins = 0, draws = 0;
+                for (int g = 0; g < gamesPerMatch; g++)
+                {
+                    var r1 = sim.SimulateLevels(w, a, b);
+                    if (r1 == PlayerSide.Player1) aWins++;
+                    else if (r1 == PlayerSide.Player2) bWins++;
+                    else draws++;
+
+                    var r2 = sim.SimulateLevels(w, b, a);
+                    if (r2 == PlayerSide.Player2) aWins++;
+                    else if (r2 == PlayerSide.Player1) bWins++;
+                    else draws++;
+                }
+                int total = aWins + bWins + draws;
+                Debug.Log($"[Test] Lv{a} vs Lv{b}: Lv{a} wins {aWins}/{total} ({100f*aWins/total:F0}%)  Lv{b} wins {bWins}/{total} ({100f*bWins/total:F0}%)  draws {draws}/{total}");
+            }
+        }
+    }
+}

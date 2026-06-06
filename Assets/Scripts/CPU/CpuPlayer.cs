@@ -1,0 +1,516 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+public class CpuPlayer : MonoBehaviour
+{
+    private GameManager gm;
+    private MoveResolver moveResolver;
+    public PlayerSide cpuSide = PlayerSide.Player2;
+
+    public int DifficultyLevel { get; set; } = 1;
+    public EvalWeights Weights { get; set; }
+
+    private void Awake()
+    {
+        gm = FindObjectOfType<GameManager>();
+        if (gm == null)
+        {
+            Debug.LogError("[CpuPlayer] GameManager not found.");
+            enabled = false;
+            return;
+        }
+        moveResolver = new MoveResolver(gm.BoardState, gm.GameRules);
+        gm.OnGameStateChanged += OnGameStateChanged;
+
+        if (Weights == null)
+        {
+            var loaded = WeightEvolution.LoadBestWeights();
+            if (loaded != null)
+            {
+                Weights = loaded;
+                Debug.Log("[CpuPlayer] Loaded evolved weights.");
+            }
+        }
+    }
+
+    private void OnGameStateChanged()
+    {
+        if (gm.CurrentPlayMode != GameManager.PlayMode.CPU &&
+            gm.CurrentPlayMode != GameManager.PlayMode.CpuVsCpu) return;
+        if (gm.TurnManager == null) return;
+        if (gm.CurrentPhase == GamePhase.GameOver) return;
+
+        if (gm.CurrentPhase == GamePhase.PlacingSplitPieces)
+        {
+            if (gm.PendingSplitPieces != null && gm.PendingSplitPieces.Count > 0 &&
+                gm.PendingSplitPieces[0].owner == cpuSide)
+            {
+                StartCoroutine(DoCpuSplitPlacement());
+            }
+        }
+        else if (gm.CurrentPhase == GamePhase.WaitingForPieceSelect)
+        {
+            if (gm.TurnManager.CurrentPlayer != cpuSide) return;
+            StartCoroutine(DoCpuTurn());
+        }
+    }
+
+    private IEnumerator DoCpuTurn()
+    {
+        yield return new WaitForSeconds(0.5f);
+
+        if (gm.CurrentPhase != GamePhase.WaitingForPieceSelect) yield break;
+        if (gm.TurnManager.CurrentPlayer != cpuSide) yield break;
+
+        var movablePieces = GetMovablePieces();
+        if (movablePieces.Count == 0)
+        {
+            Debug.Log("[CpuPlayer] No movable pieces. Skipping turn.");
+            yield break;
+        }
+
+        PieceModel chosen;
+        BoardCoord target;
+
+        switch (DifficultyLevel)
+        {
+            case 1:
+                (chosen, target) = PickRandom(movablePieces);
+                break;
+            case 2:
+                (chosen, target) = PickGreedy(movablePieces);
+                break;
+            case 3:
+                (chosen, target) = PickEvaluated(movablePieces);
+                break;
+            default:
+                (chosen, target) = PickLookAhead(movablePieces);
+                break;
+        }
+
+        gm.OnPieceClicked(chosen);
+        yield return new WaitForSeconds(0.3f);
+
+        if (gm.CurrentPhase != GamePhase.WaitingForDestinationSelect) yield break;
+        if (gm.LegalMoves == null || gm.LegalMoves.Count == 0) yield break;
+
+        gm.OnCellClicked(target);
+    }
+
+    private (PieceModel, BoardCoord) PickRandom(List<PieceModel> pieces)
+    {
+        var chosen = pieces[Random.Range(0, pieces.Count)];
+        var moves = moveResolver.GetLegalMovesForPiece(chosen);
+        var target = moves[Random.Range(0, moves.Count)];
+        return (chosen, target);
+    }
+
+    private (PieceModel, BoardCoord) PickGreedy(List<PieceModel> pieces)
+    {
+        var candidates = new List<(PieceModel, BoardCoord, int)>();
+
+        foreach (var p in pieces)
+        {
+            var moves = moveResolver.GetLegalMovesForPiece(p);
+            foreach (var m in moves)
+            {
+                int score = 0;
+                var occupant = gm.BoardState.GetPieceAt(m);
+                if (occupant != null && occupant.owner != p.owner)
+                    score += 100;
+                if (occupant == null)
+                    score += 1;
+                candidates.Add((p, m, score));
+            }
+        }
+
+        var best = candidates.OrderByDescending(c => c.Item3).First();
+        return (best.Item1, best.Item2);
+    }
+
+    private (PieceModel, BoardCoord) PickEvaluated(List<PieceModel> pieces)
+    {
+        var candidates = new List<(PieceModel, BoardCoord, float)>();
+
+        foreach (var p in pieces)
+        {
+            var moves = moveResolver.GetLegalMovesForPiece(p);
+            foreach (var m in moves)
+            {
+                float score = EvaluateMoveV4(p, m);
+                candidates.Add((p, m, score));
+            }
+        }
+
+        var best = candidates.OrderByDescending(c => c.Item3).First();
+        return (best.Item1, best.Item2);
+    }
+
+    private (PieceModel, BoardCoord) PickLookAhead(List<PieceModel> pieces)
+    {
+        var candidates = new List<(PieceModel, BoardCoord, float)>();
+
+        foreach (var p in pieces)
+        {
+            var moves = moveResolver.GetLegalMovesForPiece(p);
+            foreach (var m in moves)
+            {
+                float score = EvaluateMoveV4(p, m);
+                float opponentResponse = GetWorstOpponentResponse(p, m);
+                score -= opponentResponse * 0.7f;
+                candidates.Add((p, m, score));
+            }
+        }
+
+        var best = candidates.OrderByDescending(c => c.Item3).First();
+        return (best.Item1, best.Item2);
+    }
+
+    private float EvaluateMoveV4(PieceModel piece, BoardCoord target)
+    {
+        var w = Weights ?? new EvalWeights();
+        float score = 0;
+        var opponent = gm.GetOpponent(piece.owner);
+        var occupant = gm.BoardState.GetPieceAt(target);
+        bool isCapture = occupant != null && occupant.owner != piece.owner;
+
+        if (isCapture)
+        {
+            score += occupant.pieceType == PieceType.OnePhase ? w.captureOnePhase : w.captureTwoPhase;
+        }
+
+        var afterDirs = piece.pieceType == PieceType.TwoPhase
+            ? PieceModel.TransformDirections(piece.GetCurrentFaceDirections(),
+                GetMoveDirection(piece.currentPosition, target))
+            : piece.GetCurrentFaceDirections();
+
+        var opponentPieces = gm.BoardState.GetPiecesOf(opponent);
+        foreach (var op in opponentPieces)
+        {
+            var opMoves = moveResolver.GetLegalMovesForPiece(op);
+            if (opMoves.Contains(target))
+            {
+                score += piece.pieceType == PieceType.OnePhase ? w.dangerOnePhase : w.dangerTwoPhase;
+            }
+        }
+
+        var friendlyPieces = gm.BoardState.GetPiecesOf(piece.owner);
+        int adjacentOnePhase = 0, adjacentFriendlies = 0;
+        foreach (var fp in friendlyPieces)
+        {
+            if (fp.pieceId == piece.pieceId) continue;
+            int dx = Mathf.Abs(target.x - fp.currentPosition.x);
+            int dy = Mathf.Abs(target.y - fp.currentPosition.y);
+            if (dx + dy == 1)
+            {
+                adjacentFriendlies++;
+                if (fp.pieceType == PieceType.OnePhase)
+                    adjacentOnePhase++;
+            }
+        }
+        if (piece.pieceType == PieceType.TwoPhase)
+            score += adjacentOnePhase * w.surroundByOnePhase + adjacentFriendlies * w.surroundFriendly;
+        else
+            score += adjacentFriendlies * w.onePhaseSurroundFriendly;
+
+        float avgDist = 0;
+        int fCount = 0;
+        foreach (var fp in friendlyPieces)
+        {
+            if (fp.pieceId == piece.pieceId) continue;
+            avgDist += Mathf.Abs(target.x - fp.currentPosition.x)
+                + Mathf.Abs(target.y - fp.currentPosition.y);
+            fCount++;
+        }
+        if (fCount > 0)
+        {
+            avgDist /= fCount;
+            score += avgDist * w.groupCohesion;
+        }
+
+        int mobility = 0;
+        foreach (var d in afterDirs)
+        {
+            var next = new BoardCoord(target.x + BoardCoordUtil.Offset(d).x,
+                target.y + BoardCoordUtil.Offset(d).y);
+            if (gm.BoardState.IsValidCoord(next) && gm.BoardState.GetPieceAt(next) == null)
+                mobility++;
+        }
+        score += (piece.pieceType == PieceType.OnePhase ? w.onePhaseMobility : w.twoPhaseMobility) * mobility;
+
+        int turnNum = gm.TurnManager?.TurnNumber ?? 0;
+        if (turnNum <= w.earlyTurnCutoff)
+        {
+            int forward = piece.owner == PlayerSide.Player1 ? 1 : -1;
+            score += (target.x - piece.currentPosition.x) * forward * w.forwardPushEarly;
+        }
+
+        int midY = (gm.GameRules.boardHeight - 1) / 2;
+        int topCount = 0, botCount = 0;
+        foreach (var fp in friendlyPieces)
+        {
+            if (fp.currentPosition.y > midY) topCount++;
+            else if (fp.currentPosition.y < midY) botCount++;
+        }
+        if (topCount > botCount && target.y > midY) score += w.biasSideStrength;
+        else if (botCount > topCount && target.y < midY) score += w.biasSideStrength;
+
+        if (!isCapture)
+        {
+            foreach (var d in afterDirs)
+            {
+                var next = new BoardCoord(target.x + BoardCoordUtil.Offset(d).x,
+                    target.y + BoardCoordUtil.Offset(d).y);
+                if (!gm.BoardState.IsValidCoord(next)) continue;
+                var nextOcc = gm.BoardState.GetPieceAt(next);
+                if (nextOcc != null && nextOcc.owner == opponent)
+                {
+                    bool safe = true;
+                    foreach (var op in opponentPieces)
+                    {
+                        if (op.pieceId == nextOcc.pieceId) continue;
+                        if (moveResolver.GetLegalMovesForPiece(op).Contains(next))
+                        { safe = false; break; }
+                    }
+                    score += safe ? w.safeForkCapture : w.riskyForkCapture;
+                }
+            }
+        }
+
+        foreach (var op in opponentPieces)
+        {
+            if (op.pieceType != PieceType.TwoPhase) continue;
+            var hidden = op.GetOppositeFaceDirections();
+            foreach (var d in hidden)
+            {
+                var ht = new BoardCoord(op.currentPosition.x + BoardCoordUtil.Offset(d).x,
+                    op.currentPosition.y + BoardCoordUtil.Offset(d).y);
+                if (ht.Equals(target))
+                    score += piece.pieceType == PieceType.OnePhase ? w.hiddenFaceOnePhase : w.hiddenFaceTwoPhase;
+            }
+        }
+
+        int w2 = gm.GameRules.boardWidth;
+        int h = gm.GameRules.boardHeight;
+        float distToCenter = Mathf.Abs(target.x - (w2 - 1) / 2) + Mathf.Abs(target.y - (h - 1) / 2);
+        score += distToCenter * w.centerWeight;
+
+        if (piece.spawnedThisTurn)
+            score += w.spawnedTurnPenalty;
+
+        if (gm.WouldMoveCauseRepetition(piece, target, isCapture))
+            score += w.repetitionPenalty;
+
+        var oppPieces2 = gm.BoardState.GetPiecesOf(opponent);
+        int myReach = 0, oppReach = 0;
+        foreach (var fp in friendlyPieces)
+            myReach += moveResolver.GetLegalMovesForPiece(fp).Count;
+        foreach (var op in oppPieces2)
+            oppReach += moveResolver.GetLegalMovesForPiece(op).Count;
+        score += (myReach - oppReach) * w.territoryControl;
+
+        score += (friendlyPieces.Count - oppPieces2.Count) * w.pieceCountAdvantage;
+
+        int isoPenalty = 0;
+        foreach (var fp in friendlyPieces)
+        {
+            int minDist = 999;
+            foreach (var fp2 in friendlyPieces)
+            {
+                if (fp2.pieceId == fp.pieceId) continue;
+                int d = Mathf.Abs(fp.currentPosition.x - fp2.currentPosition.x)
+                      + Mathf.Abs(fp.currentPosition.y - fp2.currentPosition.y);
+                if (d < minDist) minDist = d;
+            }
+            if (minDist < 999)
+                isoPenalty += minDist;
+        }
+        score += isoPenalty * w.isolationPenalty;
+
+        return score;
+    }
+
+    private float GetWorstOpponentResponse(PieceModel myPiece, BoardCoord myTarget)
+    {
+        var opponent = gm.GetOpponent(myPiece.owner);
+        float worstScore = float.MinValue;
+        var oppPieces = gm.BoardState.GetPiecesOf(opponent);
+        BoardCoord myOrigin = myPiece.currentPosition;
+
+        foreach (var op in oppPieces)
+        {
+            if (op.spawnedThisTurn) continue;
+            var opMoves = moveResolver.GetLegalMovesForPiece(op);
+
+            foreach (var om in opMoves)
+            {
+                float threatScore = 0;
+                var opOcc = gm.BoardState.GetPieceAt(om);
+
+                if (opOcc != null && opOcc.owner == myPiece.owner)
+                {
+                    if (opOcc.pieceType == PieceType.OnePhase)
+                        threatScore += 8000;
+                    else
+                        threatScore += 500;
+                }
+
+                var myAfterDirs = PieceModel.TransformDirections(myPiece.GetCurrentFaceDirections(),
+                    GetMoveDirection(myOrigin, myTarget));
+                foreach (var d in myAfterDirs)
+                {
+                    var next = new BoardCoord(myTarget.x + BoardCoordUtil.Offset(d).x,
+                        myTarget.y + BoardCoordUtil.Offset(d).y);
+                    if (gm.BoardState.IsValidCoord(next) && next.Equals(om))
+                        threatScore -= 200;
+                }
+
+                if (threatScore > worstScore)
+                    worstScore = threatScore;
+            }
+        }
+
+        return worstScore > 0 ? worstScore : 0;
+    }
+
+    private Direction GetMoveDirection(BoardCoord from, BoardCoord to)
+    {
+        int dx = to.x - from.x;
+        int dy = to.y - from.y;
+        foreach (var d in BoardCoordUtil.AllDirections())
+        {
+            var off = BoardCoordUtil.Offset(d);
+            if (off.x == dx && off.y == dy) return d;
+        }
+        return Direction.Right;
+    }
+
+    private IEnumerator DoCpuSplitPlacement()
+    {
+        yield return new WaitForSeconds(0.5f);
+
+        if (gm.CurrentPhase != GamePhase.PlacingSplitPieces) yield break;
+        if (gm.PendingSplitPieces == null || gm.PendingSplitPieces.Count == 0) yield break;
+
+        var emptyCells = gm.BoardState.GetEmptyCells();
+        if (emptyCells.Count < gm.PendingSplitPieces.Count)
+        {
+            Debug.LogWarning("[CpuPlayer] Not enough empty cells for split placement.");
+            yield break;
+        }
+
+        var placed = new List<PieceModel>();
+
+        if (DifficultyLevel <= 1)
+        {
+            var shuffledCells = emptyCells.OrderBy(_ => Random.value).ToList();
+            for (int i = 0; i < gm.PendingSplitPieces.Count; i++)
+            {
+                var piece = gm.PendingSplitPieces[i];
+                var coord = shuffledCells[i];
+                gm.PlaceSplitPieceOnBoard(piece, coord);
+                if (gm.BoardView != null)
+                    gm.BoardView.CreatePieceView(piece);
+                placed.Add(piece);
+            }
+        }
+        else if (DifficultyLevel == 2)
+        {
+            var sortedCells = emptyCells.OrderBy(c =>
+            {
+                int distFromCenter = Mathf.Abs(c.x - (gm.GameRules.boardWidth - 1) / 2)
+                    + Mathf.Abs(c.y - (gm.GameRules.boardHeight - 1) / 2);
+                return distFromCenter;
+            }).ToList();
+
+            for (int i = 0; i < gm.PendingSplitPieces.Count; i++)
+            {
+                var piece = gm.PendingSplitPieces[i];
+                var coord = sortedCells[i];
+                gm.PlaceSplitPieceOnBoard(piece, coord);
+                if (gm.BoardView != null)
+                    gm.BoardView.CreatePieceView(piece);
+                placed.Add(piece);
+            }
+        }
+        else
+        {
+            int oppSide = cpuSide == PlayerSide.Player1 ? 0 : gm.GameRules.boardWidth - 1;
+            var captureCell = gm.LastCaptureCell;
+            var scoredCells = emptyCells.OrderByDescending(c =>
+            {
+                float s = 0;
+
+                int distFromOpp = Mathf.Abs(c.x - oppSide);
+                s -= distFromOpp;
+
+                int centerY = (gm.GameRules.boardHeight - 1) / 2;
+                s -= Mathf.Abs(c.y - centerY) * 2;
+
+                if (captureCell.x >= 0)
+                {
+                    int dx = Mathf.Abs(c.x - captureCell.x);
+                    int dy = Mathf.Abs(c.y - captureCell.y);
+                    if (dx + dy == 1)
+                        s += 80;
+                }
+
+                var myPieces = gm.BoardState.GetPiecesOf(cpuSide);
+                foreach (var mp in myPieces)
+                {
+                    int dx = Mathf.Abs(c.x - mp.currentPosition.x);
+                    int dy = Mathf.Abs(c.y - mp.currentPosition.y);
+                    s -= Mathf.Max(0, 3 - (dx + dy)) * 5;
+                }
+
+                var oppPieces = gm.BoardState.GetPiecesOf(gm.GetOpponent(cpuSide));
+                foreach (var op in oppPieces)
+                {
+                    if (op.pieceType != PieceType.TwoPhase) continue;
+                    var backDirs = op.GetOppositeFaceDirections();
+                    foreach (var d in backDirs)
+                    {
+                        var ht = new BoardCoord(op.currentPosition.x + BoardCoordUtil.Offset(d).x,
+                            op.currentPosition.y + BoardCoordUtil.Offset(d).y);
+                        if (ht.Equals(c)) s -= 60;
+                    }
+                }
+
+                return s;
+            }).ToList();
+
+            for (int i = 0; i < gm.PendingSplitPieces.Count; i++)
+            {
+                var piece = gm.PendingSplitPieces[i];
+                var coord = scoredCells[i];
+                gm.PlaceSplitPieceOnBoard(piece, coord);
+                if (gm.BoardView != null)
+                    gm.BoardView.CreatePieceView(piece);
+                placed.Add(piece);
+            }
+        }
+
+        yield return new WaitForSeconds(0.2f);
+        gm.FinalizeSplitPlacement(placed);
+    }
+
+    private List<PieceModel> GetMovablePieces()
+    {
+        var pieces = gm.BoardState.GetPiecesOf(cpuSide);
+        var result = new List<PieceModel>();
+        foreach (var p in pieces)
+        {
+            if (p.canActThisTurn && !p.spawnedThisTurn && moveResolver.GetLegalMovesForPiece(p).Count > 0)
+                result.Add(p);
+        }
+        return result;
+    }
+
+    private void OnDestroy()
+    {
+        if (gm != null)
+            gm.OnGameStateChanged -= OnGameStateChanged;
+    }
+}
