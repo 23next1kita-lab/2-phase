@@ -21,6 +21,10 @@ jobs:
           type build.log
           exit /b !UNITY_ERR!
 
+      - name: Add Git bash to PATH
+        shell: powershell
+        run: echo "C:\Program Files\Git\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: Builds/WebGL
