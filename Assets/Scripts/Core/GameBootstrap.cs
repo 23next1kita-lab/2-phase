@@ -5,6 +5,14 @@ public class GameBootstrap : MonoBehaviour
     [SerializeField] private GameRulesSO gameRules;
     [SerializeField] private InitialPieceLayoutSO initialLayout;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void AutoCreate()
+    {
+        if (FindObjectOfType<GameBootstrap>() != null) return;
+        var obj = new GameObject("GameBootstrap");
+        obj.AddComponent<GameBootstrap>();
+    }
+
     private void Awake()
     {
         if (FindObjectsByType<GameBootstrap>(FindObjectsSortMode.None).Length > 1)
