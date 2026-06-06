@@ -493,6 +493,7 @@ public class GameManager : MonoBehaviour
                         handler.RPC_StartClientSplitPlacement(json);
                     }
                     currentPhase = GamePhase.WaitingForOpponentSplit;
+                    OnGameStateChanged?.Invoke();
                     if (uiManager != null)
                         uiManager.ShowMessage("相手の分裂配置を待っています...");
                     selectedPiece = null;
@@ -501,6 +502,7 @@ public class GameManager : MonoBehaviour
                 }
 
                 currentPhase = GamePhase.PlacingSplitPieces;
+                OnGameStateChanged?.Invoke();
 
                 Debug.Log($"[Game] Entering split placement phase. Drag-floating split pieces onto the board.");
                 if (boardView != null)
