@@ -5,12 +5,15 @@ using UnityEngine;
 
 public class CpuPlayer : MonoBehaviour
 {
+    private const float OnePhaseCapturePriorityBonus = 10000000f;
     private GameManager gm;
     private MoveResolver moveResolver;
     public PlayerSide cpuSide = PlayerSide.Player2;
     private Dictionary<int, BoardCoord> turnStartPositions = new Dictionary<int, BoardCoord>();
     private int cpuMoveCount = 0;
     private bool firstTurnPlayed = false;
+    private bool isTurnRoutineRunning = false;
+    private bool isSplitPlacementRunning = false;
     private List<string> pastFriendlyStateHashes = new List<string>();
 
     public int DifficultyLevel { get; set; } = 1;
@@ -55,6 +58,7 @@ public class CpuPlayer : MonoBehaviour
             if (gm.PendingSplitPieces != null && gm.PendingSplitPieces.Count > 0 &&
                 gm.PendingSplitPieces[0].owner == cpuSide)
             {
+                if (isSplitPlacementRunning) return;
                 Debug.Log("[CpuPlayer] Starting split placement coroutine");
                 StartCoroutine(DoCpuSplitPlacement());
             }
@@ -80,21 +84,24 @@ public class CpuPlayer : MonoBehaviour
                     turnStartPositions[p.pieceId] = p.currentPosition;
             }
             cpuMoveCount++;
+            if (isTurnRoutineRunning) return;
             StartCoroutine(DoCpuTurn());
         }
     }
 
     private IEnumerator DoCpuTurn()
     {
+        isTurnRoutineRunning = true;
         yield return new WaitForSeconds(0.5f);
 
-        if (gm.CurrentPhase != GamePhase.WaitingForPieceSelect) yield break;
-        if (gm.TurnManager.CurrentPlayer != cpuSide) yield break;
+        if (gm.CurrentPhase != GamePhase.WaitingForPieceSelect) { isTurnRoutineRunning = false; yield break; }
+        if (gm.TurnManager.CurrentPlayer != cpuSide) { isTurnRoutineRunning = false; yield break; }
 
         var movablePieces = GetMovablePieces();
         if (movablePieces.Count == 0)
         {
             Debug.Log("[CpuPlayer] No movable pieces. Skipping turn.");
+            isTurnRoutineRunning = false;
             yield break;
         }
 
@@ -107,9 +114,13 @@ public class CpuPlayer : MonoBehaviour
             (chosen, target) = PickRandom(movablePieces);
             gm.OnPieceClicked(chosen);
             yield return new WaitForSeconds(0.3f);
-            if (gm.CurrentPhase != GamePhase.WaitingForDestinationSelect) yield break;
-            if (gm.LegalMoves == null || gm.LegalMoves.Count == 0) yield break;
+            if (gm.CurrentPhase != GamePhase.WaitingForDestinationSelect) { isTurnRoutineRunning = false; yield break; }
+            if (gm.LegalMoves == null || gm.LegalMoves.Count == 0) { isTurnRoutineRunning = false; yield break; }
+            if (!gm.LegalMoves.Contains(target))
+                target = gm.LegalMoves[Random.Range(0, gm.LegalMoves.Count)];
             gm.OnCellClicked(target);
+            isTurnRoutineRunning = false;
+            ContinueTurnIfNeeded();
             yield break;
         }
 
@@ -132,10 +143,27 @@ public class CpuPlayer : MonoBehaviour
         gm.OnPieceClicked(chosen);
         yield return new WaitForSeconds(0.3f);
 
-        if (gm.CurrentPhase != GamePhase.WaitingForDestinationSelect) yield break;
-        if (gm.LegalMoves == null || gm.LegalMoves.Count == 0) yield break;
+        if (gm.CurrentPhase != GamePhase.WaitingForDestinationSelect) { isTurnRoutineRunning = false; yield break; }
+        if (gm.LegalMoves == null || gm.LegalMoves.Count == 0) { isTurnRoutineRunning = false; yield break; }
+        if (!gm.LegalMoves.Contains(target))
+        {
+            Debug.LogWarning($"[CpuPlayer] Replaced stale target {target}; selected piece {chosen.pieceId} now has different legal moves.");
+            target = gm.LegalMoves[Random.Range(0, gm.LegalMoves.Count)];
+        }
 
         gm.OnCellClicked(target);
+        isTurnRoutineRunning = false;
+        ContinueTurnIfNeeded();
+    }
+
+    private void ContinueTurnIfNeeded()
+    {
+        if (gm == null || gm.TurnManager == null) return;
+        if (gm.CurrentPhase == GamePhase.WaitingForPieceSelect &&
+            gm.TurnManager.CurrentPlayer == cpuSide)
+        {
+            OnGameStateChanged();
+        }
     }
 
     private (PieceModel, BoardCoord) PickRandom(List<PieceModel> pieces)
@@ -388,6 +416,8 @@ public class CpuPlayer : MonoBehaviour
         if (isCapture)
         {
             score += occupant.pieceType == PieceType.OnePhase ? w.captureOnePhase : w.captureTwoPhase;
+            if (occupant.pieceType == PieceType.OnePhase)
+                score += OnePhaseCapturePriorityBonus;
         }
 
         var afterDirs = piece.pieceType == PieceType.TwoPhase
@@ -736,16 +766,18 @@ public class CpuPlayer : MonoBehaviour
 
     private IEnumerator DoCpuSplitPlacement()
     {
+        isSplitPlacementRunning = true;
         Debug.Log("[CpuPlayer] DoCpuSplitPlacement started");
         yield return new WaitForSeconds(0.5f);
 
-        if (gm.CurrentPhase != GamePhase.PlacingSplitPieces) { Debug.Log("[CpuPlayer] Split placement aborted: phase changed"); yield break; }
-        if (gm.PendingSplitPieces == null || gm.PendingSplitPieces.Count == 0) { Debug.Log("[CpuPlayer] Split placement aborted: no pending pieces"); yield break; }
+        if (gm.CurrentPhase != GamePhase.PlacingSplitPieces) { Debug.Log("[CpuPlayer] Split placement aborted: phase changed"); isSplitPlacementRunning = false; yield break; }
+        if (gm.PendingSplitPieces == null || gm.PendingSplitPieces.Count == 0) { Debug.Log("[CpuPlayer] Split placement aborted: no pending pieces"); isSplitPlacementRunning = false; yield break; }
 
         var emptyCells = gm.BoardState.GetEmptyCells();
         if (emptyCells.Count < gm.PendingSplitPieces.Count)
         {
             Debug.LogWarning("[CpuPlayer] Not enough empty cells for split placement.");
+            isSplitPlacementRunning = false;
             yield break;
         }
 
@@ -789,56 +821,19 @@ public class CpuPlayer : MonoBehaviour
         }
         else
         {
-            int oppSide = cpuSide == PlayerSide.Player1 ? 0 : gm.GameRules.boardWidth - 1;
             var captureCell = gm.LastCaptureCell;
-            var scoredCells = emptyCells.OrderByDescending(c =>
-            {
-                float s = 0;
-
-                int distFromOpp = Mathf.Abs(c.x - oppSide);
-                s -= distFromOpp;
-
-                int centerY = (gm.GameRules.boardHeight - 1) / 2;
-                s -= Mathf.Abs(c.y - centerY) * 2;
-
-                if (captureCell.x >= 0)
-                {
-                    int dx = Mathf.Abs(c.x - captureCell.x);
-                    int dy = Mathf.Abs(c.y - captureCell.y);
-                    if (dx + dy == 1)
-                        s += 80;
-                }
-
-                var myPieces = gm.BoardState.GetPiecesOf(cpuSide);
-                foreach (var mp in myPieces)
-                {
-                    int dx = Mathf.Abs(c.x - mp.currentPosition.x);
-                    int dy = Mathf.Abs(c.y - mp.currentPosition.y);
-                    s -= Mathf.Max(0, 3 - (dx + dy)) * 5;
-                }
-
-                var oppPieces = gm.BoardState.GetPiecesOf(gm.GetOpponent(cpuSide));
-                foreach (var op in oppPieces)
-                {
-                    if (op.pieceType != PieceType.TwoPhase) continue;
-                    var backDirs = op.GetOppositeFaceDirections();
-                    foreach (var d in backDirs)
-                    {
-                        var ht = new BoardCoord(op.currentPosition.x + BoardCoordUtil.Offset(d).x,
-                            op.currentPosition.y + BoardCoordUtil.Offset(d).y);
-                        if (ht.Equals(c)) s -= 60;
-                    }
-                }
-
-                return s;
-            }).ToList();
+            var availableCells = new List<BoardCoord>(emptyCells);
 
             for (int i = 0; i < gm.PendingSplitPieces.Count; i++)
             {
                 var piece = gm.PendingSplitPieces[i];
-                var coord = scoredCells[i];
+                var coord = availableCells
+                    .OrderByDescending(c => EvaluateSplitPlacementCell(piece, c, captureCell))
+                    .ThenBy(c => Random.value)
+                    .First();
                 Debug.Log($"[CpuPlayer] Placing split piece {piece.pieceId} at {coord}");
                 gm.PlaceSplitPieceOnBoard(piece, coord);
+                availableCells.Remove(coord);
                 if (gm.BoardView != null)
                     gm.BoardView.CreatePieceView(piece);
                 placed.Add(piece);
@@ -848,6 +843,85 @@ public class CpuPlayer : MonoBehaviour
         Debug.Log($"[CpuPlayer] Finalizing split placement with {placed.Count} pieces");
         yield return new WaitForSeconds(0.2f);
         gm.FinalizeSplitPlacement(placed);
+        isSplitPlacementRunning = false;
+    }
+
+    private float EvaluateSplitPlacementCell(PieceModel piece, BoardCoord c, BoardCoord captureCell)
+    {
+        float s = 0;
+
+        if (piece.pieceType == PieceType.OnePhase)
+        {
+            int homeSide = cpuSide == PlayerSide.Player1 ? 0 : gm.GameRules.boardWidth - 1;
+            int distFromHome = Mathf.Abs(c.x - homeSide);
+            s -= distFromHome * 100;
+        }
+        else
+        {
+            int oppSide = cpuSide == PlayerSide.Player1 ? 0 : gm.GameRules.boardWidth - 1;
+            int distFromOpp = Mathf.Abs(c.x - oppSide);
+            s -= distFromOpp;
+        }
+
+        int centerY = (gm.GameRules.boardHeight - 1) / 2;
+        s -= Mathf.Abs(c.y - centerY) * 2;
+
+        if (captureCell.x >= 0)
+        {
+            int dx = Mathf.Abs(c.x - captureCell.x);
+            int dy = Mathf.Abs(c.y - captureCell.y);
+            if (dx + dy == 1)
+                s += 80;
+        }
+
+        var myPieces = gm.BoardState.GetPiecesOf(cpuSide);
+        if (piece.pieceType == PieceType.OnePhase)
+        {
+            int enclosedScore = 0;
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    var neighborCoord = new BoardCoord(c.x + dx, c.y + dy);
+                    if (!gm.BoardState.IsValidCoord(neighborCoord))
+                    {
+                        enclosedScore += 2;
+                        continue;
+                    }
+
+                    var neighbor = gm.BoardState.GetPieceAt(neighborCoord);
+                    if (neighbor != null && neighbor.owner == cpuSide)
+                        enclosedScore += 2;
+                }
+            }
+            s += enclosedScore * 25;
+        }
+
+        foreach (var mp in myPieces)
+        {
+            int dx = Mathf.Abs(c.x - mp.currentPosition.x);
+            int dy = Mathf.Abs(c.y - mp.currentPosition.y);
+            if (piece.pieceType == PieceType.OnePhase)
+                s += Mathf.Max(0, 3 - (dx + dy)) * 10;
+            else
+                s -= Mathf.Max(0, 3 - (dx + dy)) * 5;
+        }
+
+        var oppPieces = gm.BoardState.GetPiecesOf(gm.GetOpponent(cpuSide));
+        foreach (var op in oppPieces)
+        {
+            if (op.pieceType != PieceType.TwoPhase) continue;
+            var backDirs = op.GetOppositeFaceDirections();
+            foreach (var d in backDirs)
+            {
+                var ht = new BoardCoord(op.currentPosition.x + BoardCoordUtil.Offset(d).x,
+                    op.currentPosition.y + BoardCoordUtil.Offset(d).y);
+                if (ht.Equals(c)) s -= 60;
+            }
+        }
+
+        return s;
     }
 
     private List<PieceModel> GetMovablePieces()
@@ -886,9 +960,18 @@ public class CpuPlayer : MonoBehaviour
         return string.Join("|", sorted);
     }
 
-    private void OnDestroy()
+    public void Detach()
     {
+        StopAllCoroutines();
+        isTurnRoutineRunning = false;
+        isSplitPlacementRunning = false;
         if (gm != null)
             gm.OnGameStateChanged -= OnGameStateChanged;
+        enabled = false;
+    }
+
+    private void OnDestroy()
+    {
+        Detach();
     }
 }

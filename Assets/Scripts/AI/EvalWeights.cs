@@ -4,7 +4,7 @@ using System;
 public class EvalWeights
 {
     public float captureTwoPhase = 1000f;
-    public float captureOnePhase = 50000f;
+    public float captureOnePhase = 500000f;
     public float dangerOnePhase = -3000f;
     public float dangerTwoPhase = -400f;
     public float surroundByOnePhase = 30f;
@@ -56,7 +56,7 @@ public class EvalWeights
     public void Mutate(float rate = 0.15f, float sigma = 0.3f)
     {
         MutateField(ref captureTwoPhase, 200, 2000, rate, sigma);
-        MutateField(ref captureOnePhase, 10000, 100000, rate, sigma);
+        MutateField(ref captureOnePhase, 100000, 1000000, rate, sigma);
         MutateField(ref dangerOnePhase, -5000, -500, rate, sigma);
         MutateField(ref dangerTwoPhase, -1000, -100, rate, sigma);
         MutateField(ref surroundByOnePhase, 0, 100, rate, sigma);

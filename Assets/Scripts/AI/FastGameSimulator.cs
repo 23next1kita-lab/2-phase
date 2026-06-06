@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class FastGameSimulator
 {
+    private const float OnePhaseCapturePriorityBonus = 10000000f;
     private GameRulesSO rules;
     private BoardState board;
     private TurnManager turnManager;
@@ -399,6 +400,8 @@ public class FastGameSimulator
         if (isCapture)
         {
             score += occupant.pieceType == PieceType.OnePhase ? w.captureOnePhase : w.captureTwoPhase;
+            if (occupant.pieceType == PieceType.OnePhase)
+                score += OnePhaseCapturePriorityBonus;
         }
 
         var afterDirs = piece.pieceType == PieceType.TwoPhase

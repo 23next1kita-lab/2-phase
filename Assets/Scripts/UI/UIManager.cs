@@ -377,8 +377,11 @@ public class UIManager : MonoBehaviour
 
         if (gameManager != null)
         {
-            var cpu = gameManager.GetComponent<CpuPlayer>();
-            if (cpu != null) Destroy(cpu);
+            foreach (var cpu in gameManager.GetComponents<CpuPlayer>())
+            {
+                cpu.Detach();
+                Destroy(cpu);
+            }
 
             var nm = gameManager.GetComponent<NetworkManager>();
             if (nm != null) Destroy(nm);

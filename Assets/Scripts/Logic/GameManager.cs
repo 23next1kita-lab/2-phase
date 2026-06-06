@@ -122,6 +122,12 @@ public class GameManager : MonoBehaviour
 
     public void StartGame(PlayMode mode, int cpuLevel = 1)
     {
+        foreach (var cpu in GetComponents<CpuPlayer>())
+        {
+            cpu.Detach();
+            Destroy(cpu);
+        }
+
         playMode = mode;
         CpuLevel = cpuLevel;
         InitializeGame();
