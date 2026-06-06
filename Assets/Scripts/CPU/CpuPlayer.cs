@@ -8,6 +8,7 @@ public class CpuPlayer : MonoBehaviour
     private GameManager gm;
     private MoveResolver moveResolver;
     public PlayerSide cpuSide = PlayerSide.Player2;
+    private Dictionary<int, BoardCoord> turnStartPositions = new Dictionary<int, BoardCoord>();
 
     public int DifficultyLevel { get; set; } = 1;
     public EvalWeights Weights { get; set; }
@@ -62,6 +63,9 @@ public class CpuPlayer : MonoBehaviour
         else if (gm.CurrentPhase == GamePhase.WaitingForPieceSelect)
         {
             if (gm.TurnManager.CurrentPlayer != cpuSide) return;
+            turnStartPositions.Clear();
+            foreach (var p in gm.BoardState.GetPiecesOf(cpuSide))
+                turnStartPositions[p.pieceId] = p.currentPosition;
             StartCoroutine(DoCpuTurn());
         }
     }
@@ -304,6 +308,18 @@ public class CpuPlayer : MonoBehaviour
         }
         score += wallCount * w.twoPhaseWall * 0.2f;
 
+        if (myPieces.Count > 0)
+        {
+            float sx = 0, sy = 0;
+            foreach (var p in myPieces) { sx += p.currentPosition.x; sy += p.currentPosition.y; }
+            float mx = sx / myPieces.Count, my2 = sy / myPieces.Count;
+            float var = 0;
+            foreach (var p in myPieces)
+                var += (p.currentPosition.x - mx) * (p.currentPosition.x - mx)
+                     + (p.currentPosition.y - my2) * (p.currentPosition.y - my2);
+            score += var * w.dispersionPenalty * 0.2f;
+        }
+
         return score;
     }
 
@@ -402,6 +418,19 @@ public class CpuPlayer : MonoBehaviour
             score += advance * w.forwardPressure;
         else if (advance < 0)
             score += w.retreatPenalty;
+
+        if (turnStartPositions.TryGetValue(piece.pieceId, out var startPos) && target.Equals(startPos))
+            score += w.backtrackPenalty;
+
+        float sumX = 0, sumY = 0;
+        foreach (var fp in friendlyPieces) { sumX += fp.currentPosition.x; sumY += fp.currentPosition.y; }
+        float meanX = sumX / friendlyPieces.Count;
+        float meanY = sumY / friendlyPieces.Count;
+        float variance = 0;
+        foreach (var fp in friendlyPieces)
+            variance += (fp.currentPosition.x - meanX) * (fp.currentPosition.x - meanX)
+                      + (fp.currentPosition.y - meanY) * (fp.currentPosition.y - meanY);
+        score += variance * w.dispersionPenalty;
 
         if (isCapture && occupant != null && occupant.pieceType == PieceType.TwoPhase)
         {
@@ -514,12 +543,14 @@ public class CpuPlayer : MonoBehaviour
         int safeZoneCount = 0;
         int bw = gm.GameRules.boardWidth;
         int bh = gm.GameRules.boardHeight;
+        int homeEdgeX = piece.owner == PlayerSide.Player1 ? -1 : bw;
         for (int x = 0; x < bw; x++)
         {
             for (int y = 0; y < bh; y++)
             {
                 var cellOcc = gm.BoardState.GetPieceAt(new BoardCoord(x, y));
-                if (cellOcc != null && cellOcc.owner != piece.owner) continue;
+                bool isValidCell = cellOcc == null || (cellOcc.owner == piece.owner && cellOcc.pieceType == PieceType.OnePhase);
+                if (!isValidCell) continue;
                 bool surrounded = true;
                 for (int dx = -1; dx <= 1 && surrounded; dx++)
                 {
@@ -527,7 +558,11 @@ public class CpuPlayer : MonoBehaviour
                     {
                         if (dx == 0 && dy == 0) continue;
                         int nx = x + dx, ny = y + dy;
-                        if (nx < 0 || nx >= bw || ny < 0 || ny >= bh) continue;
+                        if (nx < 0 || nx >= bw || ny < 0 || ny >= bh)
+                        {
+                            if (nx == homeEdgeX) continue;
+                            else { surrounded = false; break; }
+                        }
                         var neighbor = gm.BoardState.GetPieceAt(new BoardCoord(nx, ny));
                         if (neighbor == null || neighbor.owner != piece.owner || neighbor.pieceType != PieceType.TwoPhase)
                             surrounded = false;

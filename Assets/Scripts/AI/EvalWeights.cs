@@ -31,7 +31,9 @@ public class EvalWeights
     public float territoryControl = 8f;
     public float pieceCountAdvantage = 100f;
     public float isolationPenalty = -10f;
-    public float safeZoneBonus = 700f;
+    public float safeZoneBonus = 3000f;
+    public float backtrackPenalty = -500f;
+    public float dispersionPenalty = -5f;
     public float forwardPressure = 20f;
     public float shelterBonus = 40f;
     public float retreatPenalty = -25f;
@@ -71,7 +73,9 @@ public class EvalWeights
         MutateField(ref territoryControl, 0, 30, rate, sigma);
         MutateField(ref pieceCountAdvantage, 20, 400, rate, sigma);
         MutateField(ref isolationPenalty, -30, 0, rate, sigma);
-        MutateField(ref safeZoneBonus, 0, 2000, rate, sigma);
+        MutateField(ref safeZoneBonus, 500, 6000, rate, sigma);
+        MutateField(ref backtrackPenalty, -2000, -100, rate, sigma);
+        MutateField(ref dispersionPenalty, -20, -1, rate, sigma);
         MutateField(ref forwardPressure, 5, 50, rate, sigma);
         MutateField(ref shelterBonus, 10, 100, rate, sigma);
         MutateField(ref retreatPenalty, -80, -5, rate, sigma);
