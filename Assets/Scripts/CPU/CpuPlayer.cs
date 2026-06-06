@@ -62,10 +62,16 @@ public class CpuPlayer : MonoBehaviour
         }
         else if (gm.CurrentPhase == GamePhase.WaitingForPieceSelect)
         {
-            if (gm.TurnManager.CurrentPlayer != cpuSide) return;
-            turnStartPositions.Clear();
-            foreach (var p in gm.BoardState.GetPiecesOf(cpuSide))
-                turnStartPositions[p.pieceId] = p.currentPosition;
+            if (gm.TurnManager.CurrentPlayer != cpuSide)
+            {
+                turnStartPositions.Clear();
+                return;
+            }
+            if (turnStartPositions.Count == 0)
+            {
+                foreach (var p in gm.BoardState.GetPiecesOf(cpuSide))
+                    turnStartPositions[p.pieceId] = p.currentPosition;
+            }
             StartCoroutine(DoCpuTurn());
         }
     }
