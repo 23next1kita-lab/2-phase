@@ -453,6 +453,26 @@ public class CpuPlayer : MonoBehaviour
                 if (threatenCount >= 2) bonus *= 3f;
                 score += bonus;
             }
+
+            if (piece.pieceType == PieceType.OnePhase && occupant != null && occupant.owner == opponent)
+            {
+                var ourPieces = gm.BoardState.GetPiecesOf(piece.owner);
+                var ourOnePhase2 = ourPieces.Where(fp => fp.pieceType == PieceType.OnePhase && fp.pieceId != piece.pieceId).ToList();
+                bool anyThreatened = false;
+                foreach (var op in opponentPieces)
+                {
+                    if (op.pieceId == occupant.pieceId) continue;
+                    var opMoves2 = moveResolver.GetLegalMovesForPiece(op);
+                    foreach (var o1p in ourOnePhase2)
+                    {
+                        if (opMoves2.Contains(o1p.currentPosition))
+                        { anyThreatened = true; break; }
+                    }
+                    if (anyThreatened) break;
+                }
+                if (anyThreatened)
+                    score += 100000f;
+            }
         }
 
         var friendlyPieces = gm.BoardState.GetPiecesOf(piece.owner);

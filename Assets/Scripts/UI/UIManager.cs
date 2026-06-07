@@ -46,26 +46,56 @@ public class UIManager : MonoBehaviour
         bool mobile = Application.isMobilePlatform;
         if (turnText == null)
         {
-            turnText = CreateText("TurnText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 170) : new Vector2(-300, 200), "Turn: 1 - Player1", mobile ? 30 : 20);
-            if (mobile) turnText.fontStyle = FontStyle.Bold;
+            turnText = CreateText("TurnText", cachedCanvas.gameObject, mobile ? new Vector2(10, 170) : new Vector2(-300, 200), "Turn: 1 - Player1", mobile ? 30 : 20);
+            if (mobile)
+            {
+                turnText.fontStyle = FontStyle.Bold;
+                var rt = turnText.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0, 0.5f);
+                rt.anchorMax = new Vector2(0, 0.5f);
+                rt.anchoredPosition = new Vector2(10, 170);
+                rt.sizeDelta = new Vector2(400, 35);
+            }
         }
         if (movesRemainingText == null)
         {
-            movesRemainingText = CreateText("MovesText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 125) : new Vector2(-300, 155), "Moves left: 0", mobile ? 27 : 18);
-            if (mobile) movesRemainingText.fontStyle = FontStyle.Bold;
+            movesRemainingText = CreateText("MovesText", cachedCanvas.gameObject, mobile ? new Vector2(10, 125) : new Vector2(-300, 155), "Moves left: 0", mobile ? 27 : 18);
+            if (mobile)
+            {
+                movesRemainingText.fontStyle = FontStyle.Bold;
+                var rt = movesRemainingText.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0, 0.5f);
+                rt.anchorMax = new Vector2(0, 0.5f);
+                rt.anchoredPosition = new Vector2(10, 125);
+                rt.sizeDelta = new Vector2(400, 35);
+            }
         }
         if (phaseText == null)
         {
-            phaseText = CreateText("PhaseText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 80) : new Vector2(-300, 110), "Phase: Select a piece", mobile ? 24 : 16);
-            if (mobile) phaseText.fontStyle = FontStyle.Bold;
+            phaseText = CreateText("PhaseText", cachedCanvas.gameObject, mobile ? new Vector2(10, 80) : new Vector2(-300, 110), "Phase: Select a piece", mobile ? 24 : 16);
+            if (mobile)
+            {
+                phaseText.fontStyle = FontStyle.Bold;
+                var rt = phaseText.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0, 0.5f);
+                rt.anchorMax = new Vector2(0, 0.5f);
+                rt.anchoredPosition = new Vector2(10, 80);
+                rt.sizeDelta = new Vector2(400, 35);
+            }
         }
         if (timerText == null)
         {
             timerText = CreateText("TimerText", cachedCanvas.gameObject, mobile ? new Vector2(0, 130) : new Vector2(0, 170), "", mobile ? 27 : 18);
-            if (mobile) timerText.fontStyle = FontStyle.Bold;
+            if (mobile)
+            {
+                timerText.fontStyle = FontStyle.Bold;
+                var rt = timerText.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = new Vector2(0, 130);
+                rt.sizeDelta = new Vector2(400, 30);
+            }
             timerText.alignment = TextAnchor.MiddleCenter;
-            var timerRt = timerText.GetComponent<RectTransform>();
-            timerRt.sizeDelta = new Vector2(400, 30);
         }
         if (messageText == null)
         {
@@ -276,10 +306,6 @@ public class UIManager : MonoBehaviour
         EnsureConfirmButton();
         if (confirmButton != null)
         {
-            if (show && gameManager != null && gameManager.CurrentPlayMode == GameManager.PlayMode.Online)
-            {
-                show = gameManager.TurnManager.CurrentPlayer == gameManager.LocalPlayerSide;
-            }
             confirmButton.SetActive(show);
         }
     }
