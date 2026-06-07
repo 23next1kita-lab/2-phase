@@ -196,8 +196,8 @@ public class PieceView : MonoBehaviour
         var dirs = pieceModel.GetOppositeFaceDirections();
         if (dirs == null) return;
 
-        float distance = 0.8f;
-        float arrowSize = 0.65f;
+        float distance = 0.5f;
+        float arrowSize = 0.325f;
         foreach (var dir in dirs)
         {
             var arrow = new GameObject("IndicatorArrow_" + dir);

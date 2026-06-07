@@ -35,7 +35,7 @@ public class SplitPlacementController
         {
             var piece = splitPieces[i];
             float xOff = originX + w + 1f;
-            float yOff = originY + (i == 0 ? 1.5f : -1.5f);
+            float yOff = originY + (i == 0 ? 3.0f : 0.0f);
 
             GameObject obj = new GameObject($"FloatingSplit_{i}");
             obj.transform.SetParent(parentTransform);
