@@ -14,6 +14,7 @@ public class PieceView : MonoBehaviour
     private List<GameObject> arrowInstances = new List<GameObject>();
     private bool showOppositeFace;
     private Coroutine longPressCoroutine;
+    private GameObject flipIndicator;
 
     public PieceModel PieceModel => pieceModel;
 
@@ -53,6 +54,7 @@ public class PieceView : MonoBehaviour
         {
             showOppositeFace = false;
             RefreshArrows();
+            HideFlipIndicator();
         }
     }
 
@@ -62,6 +64,7 @@ public class PieceView : MonoBehaviour
         {
             showOppositeFace = false;
             RefreshArrows();
+            HideFlipIndicator();
         }
         if (longPressCoroutine != null)
         {
@@ -81,6 +84,8 @@ public class PieceView : MonoBehaviour
         yield return new WaitForSeconds(0.4f);
         showOppositeFace = true;
         RefreshArrows();
+        if (Application.isMobilePlatform)
+            ShowFlipIndicator();
     }
 
     public void UpdateVisual()
@@ -176,6 +181,65 @@ public class PieceView : MonoBehaviour
             _ => 0f
         };
         return Quaternion.Euler(0, 0, angle);
+    }
+
+    private void ShowFlipIndicator()
+    {
+        if (pieceModel == null) return;
+        Vector3 offset = transform.right * 3.5f;
+        float scaleMultiplier = 2f;
+
+        flipIndicator = new GameObject("FlipIndicator");
+        flipIndicator.transform.SetParent(transform.parent, false);
+        flipIndicator.transform.position = transform.position + offset;
+        flipIndicator.transform.localScale = Vector3.one * scaleMultiplier;
+
+        var dirs = pieceModel.GetOppositeFaceDirections();
+        if (dirs == null) return;
+
+        var bg = new GameObject("IndicatorBg");
+        bg.transform.SetParent(flipIndicator.transform, false);
+        var bgSr = bg.AddComponent<SpriteRenderer>();
+        if (SpriteCache.Arrow != null)
+            bgSr.sprite = SpriteCache.Arrow;
+        else
+            bgSr.sprite = CreateArrowSprite();
+        bgSr.color = new Color(0, 0, 0, 0.3f);
+        bgSr.sortingOrder = 5;
+        bg.transform.localScale = Vector3.one * 3f;
+        bg.transform.localRotation = Quaternion.Euler(0, 0, 45);
+
+        float distance = 1.1f;
+        float arrowSize = 1.5f;
+        foreach (var dir in dirs)
+        {
+            var arrow = new GameObject("IndicatorArrow_" + dir);
+            arrow.transform.SetParent(flipIndicator.transform, false);
+            var sr = arrow.AddComponent<SpriteRenderer>();
+            if (SpriteCache.Arrow != null)
+                sr.sprite = SpriteCache.Arrow;
+            else
+                sr.sprite = CreateArrowSprite();
+            sr.color = Color.black;
+            sr.sortingOrder = 6;
+            arrow.transform.localPosition = DirectionToLocalPos(dir) * distance;
+            arrow.transform.localRotation = DirectionToRotation(dir);
+            arrow.transform.localScale = Vector3.one * arrowSize;
+        }
+    }
+
+    private void HideFlipIndicator()
+    {
+        if (flipIndicator != null)
+        {
+            Destroy(flipIndicator);
+            flipIndicator = null;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        HideFlipIndicator();
     }
 
     private Sprite CreateArrowSprite()

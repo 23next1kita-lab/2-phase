@@ -54,6 +54,9 @@ public class WeightEvolution : MonoBehaviour
 
     private void OnGUI()
     {
+#if !UNITY_EDITOR
+        if (!Debug.isDebugBuild) return;
+#endif
         if (!showProgress) return;
 
         int y = 10;

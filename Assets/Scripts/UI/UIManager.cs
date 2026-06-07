@@ -94,7 +94,7 @@ public class UIManager : MonoBehaviour
         btnText.fontSize = 18;
         btnText.color = Color.white;
         btnText.alignment = TextAnchor.MiddleCenter;
-        btnText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        btnText.font = FontProvider.GetFont();
 
         Button btnComp = btnObj.AddComponent<Button>();
         btnComp.targetGraphic = btnImg;
@@ -121,7 +121,7 @@ public class UIManager : MonoBehaviour
         text.text = content;
         text.fontSize = fontSize;
         text.color = Color.black;
-        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        text.font = FontProvider.GetFont();
         return text;
     }
 
@@ -145,7 +145,7 @@ public class UIManager : MonoBehaviour
         gameOverText.fontSize = 36;
         gameOverText.color = Color.white;
         gameOverText.alignment = TextAnchor.MiddleCenter;
-        gameOverText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        gameOverText.font = FontProvider.GetFont();
 
         CreateGameOverButton(panel, "ContinueButton", "Continue", new Vector2(-100, -75), () => OnNewGame());
         CreateGameOverButton(panel, "HomeButton", "Return to Home", new Vector2(100, -75), () => OnReturnToHome());
@@ -173,7 +173,7 @@ public class UIManager : MonoBehaviour
         btnText.fontSize = 20;
         btnText.color = Color.white;
         btnText.alignment = TextAnchor.MiddleCenter;
-        btnText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        btnText.font = FontProvider.GetFont();
 
         Button newGameBtnComp = btnObj.AddComponent<Button>();
         newGameBtnComp.targetGraphic = btnImg;
@@ -284,7 +284,7 @@ public class UIManager : MonoBehaviour
         txt.fontSize = 20;
         txt.color = Color.black;
         txt.alignment = TextAnchor.MiddleCenter;
-        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txt.font = FontProvider.GetFont();
 
         Button btn = btnObj.AddComponent<Button>();
         btn.targetGraphic = img;
@@ -327,7 +327,7 @@ public class UIManager : MonoBehaviour
         confirmText.fontSize = 26;
         confirmText.color = Color.white;
         confirmText.alignment = TextAnchor.MiddleCenter;
-        confirmText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        confirmText.font = FontProvider.GetFont();
 
         CreateGameOverButton(panel, "YesButton", "はい", new Vector2(-100, -50), () => { HideHomeConfirm(); OnReturnToHome(); });
         CreateGameOverButton(panel, "NoButton", "いいえ", new Vector2(100, -50), () => HideHomeConfirm());

@@ -102,7 +102,7 @@ public class MainMenuUI : MonoBehaviour
         txt.fontSize = 24;
         txt.color = Color.white;
         txt.alignment = TextAnchor.MiddleCenter;
-        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txt.font = FontProvider.GetFont();
 
         Button btn = btnObj.AddComponent<Button>();
         btn.targetGraphic = img;
@@ -173,7 +173,7 @@ public class MainMenuUI : MonoBehaviour
         txt.fontSize = 22;
         txt.color = Color.white;
         txt.alignment = TextAnchor.UpperLeft;
-        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txt.font = FontProvider.GetFont();
         txt.supportRichText = true;
 
         rulesPrevBtn = CreateRulesNavButton(panel, "PrevButton", "前へ", new Vector2(-150, 80), false, () =>
@@ -215,7 +215,7 @@ public class MainMenuUI : MonoBehaviour
         btnLabel.fontSize = 24;
         btnLabel.color = Color.white;
         btnLabel.alignment = TextAnchor.MiddleCenter;
-        btnLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        btnLabel.font = FontProvider.GetFont();
 
         Button btn = btnObj.AddComponent<Button>();
         btn.targetGraphic = btnImg;
@@ -293,7 +293,7 @@ public class MainMenuUI : MonoBehaviour
         titleObj.fontSize = 28;
         titleObj.color = Color.white;
         titleObj.alignment = TextAnchor.MiddleCenter;
-        titleObj.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        titleObj.font = FontProvider.GetFont();
 
         int[] options = { 0, 60, 180, 300, 600 };
         string[] labels = { "なし", "1分", "3分", "5分", "10分" };
@@ -371,7 +371,7 @@ public class MainMenuUI : MonoBehaviour
         txt.fontSize = 24;
         txt.color = Color.white;
         txt.alignment = TextAnchor.MiddleCenter;
-        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txt.font = FontProvider.GetFont();
         Button btn = btnObj.AddComponent<Button>();
         btn.targetGraphic = img;
         btn.onClick.AddListener(() => PlayClickSE());

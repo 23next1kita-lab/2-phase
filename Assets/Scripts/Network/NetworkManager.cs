@@ -48,7 +48,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         label.fontSize = 24;
         label.color = Color.white;
         label.alignment = TextAnchor.MiddleCenter;
-        label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        label.font = FontProvider.GetFont();
 
         GameObject inputObj = new GameObject("RoomInput", typeof(RectTransform));
         inputObj.transform.SetParent(lobbyPanel.transform, false);
@@ -65,7 +65,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         phText.text = "ルーム名を入力";
         phText.fontSize = 20;
         phText.color = Color.gray;
-        phText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        phText.font = FontProvider.GetFont();
         roomNameInput.placeholder = phText;
 
         GameObject textArea = new GameObject("Text", typeof(RectTransform));
@@ -73,7 +73,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         Text inputText = textArea.AddComponent<Text>();
         inputText.fontSize = 20;
         inputText.color = Color.black;
-        inputText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        inputText.font = FontProvider.GetFont();
         roomNameInput.textComponent = inputText;
         roomNameInput.text = "Room1";
 
@@ -112,7 +112,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         txt.fontSize = 24;
         txt.color = Color.white;
         txt.alignment = TextAnchor.MiddleCenter;
-        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txt.font = FontProvider.GetFont();
 
         Button btn = btnObj.AddComponent<Button>();
         btn.targetGraphic = img;
