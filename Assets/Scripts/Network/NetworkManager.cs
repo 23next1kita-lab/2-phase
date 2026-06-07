@@ -152,6 +152,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
             ShowWaitingText("参加者待ち...");
             var gm = FindObjectOfType<GameManager>();
             gm.IsHost = true;
+            gm.IsWaitingForOnlinePlayer = true;
             var handler = FindObjectOfType<NetworkGameHandler>();
             if (handler != null) handler.Init(gm, true);
             OnConnected?.Invoke();
@@ -185,6 +186,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
             ShowWaitingText("参加しました！");
             var gm = FindObjectOfType<GameManager>();
             gm.IsHost = false;
+            gm.IsWaitingForOnlinePlayer = false;
             OnConnected?.Invoke();
         }
     }
@@ -232,6 +234,8 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         if (player != runner.LocalPlayer)
         {
+            var gm = FindObjectOfType<GameManager>();
+            if (gm != null) gm.IsWaitingForOnlinePlayer = false;
             if (waitingText != null)
             {
                 var txt = waitingText.GetComponent<Text>();

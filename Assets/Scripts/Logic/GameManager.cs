@@ -43,6 +43,7 @@ public class GameManager : MonoBehaviour
     public BoardView BoardView => boardView;
     public PlayMode CurrentPlayMode => playMode;
     public bool IsHost { get; set; }
+    public bool IsWaitingForOnlinePlayer { get; set; }
     public PlayerSide LocalPlayerSide { get; set; }
     public int CpuLevel { get; set; } = 1;
     public System.Action OnGameStateChanged;
@@ -367,6 +368,7 @@ public class GameManager : MonoBehaviour
 
     public void OnPieceClicked(PieceModel piece)
     {
+        if (IsWaitingForOnlinePlayer) return;
         if (currentPhase == GamePhase.WaitingForDestinationSelect)
         {
             if (piece.owner != turnManager.CurrentPlayer && selectedPiece != null && piece != selectedPiece)
@@ -426,6 +428,7 @@ public class GameManager : MonoBehaviour
 
     public void OnCellClicked(BoardCoord coord)
     {
+        if (IsWaitingForOnlinePlayer) return;
         if (currentPhase == GamePhase.WaitingForDestinationSelect)
         {
             TryMove(coord);
