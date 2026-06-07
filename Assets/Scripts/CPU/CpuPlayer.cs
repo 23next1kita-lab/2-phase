@@ -435,6 +435,26 @@ public class CpuPlayer : MonoBehaviour
             }
         }
 
+        if (DifficultyLevel >= 3)
+        {
+            int threatenCount = 0;
+            foreach (var d in afterDirs)
+            {
+                var next = new BoardCoord(target.x + BoardCoordUtil.Offset(d).x,
+                    target.y + BoardCoordUtil.Offset(d).y);
+                if (!gm.BoardState.IsValidCoord(next)) continue;
+                var nextOcc = gm.BoardState.GetPieceAt(next);
+                if (nextOcc != null && nextOcc.owner == opponent && nextOcc.pieceType == PieceType.OnePhase)
+                    threatenCount++;
+            }
+            if (threatenCount > 0)
+            {
+                float bonus = threatenCount * 50000f;
+                if (threatenCount >= 2) bonus *= 3f;
+                score += bonus;
+            }
+        }
+
         var friendlyPieces = gm.BoardState.GetPiecesOf(piece.owner);
         int adjacentOnePhase = 0, adjacentFriendlies = 0;
         foreach (var fp in friendlyPieces)
@@ -854,7 +874,8 @@ public class CpuPlayer : MonoBehaviour
         {
             int homeSide = cpuSide == PlayerSide.Player1 ? 0 : gm.GameRules.boardWidth - 1;
             int distFromHome = Mathf.Abs(c.x - homeSide);
-            s -= distFromHome * 100;
+            float homeWeight = DifficultyLevel <= 2 ? 500f : 100f;
+            s -= distFromHome * homeWeight;
         }
         else
         {

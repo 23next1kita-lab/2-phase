@@ -334,8 +334,8 @@ public class FastGameSimulator
         {
             float s = 0;
 
-            int distFromOpp = Math.Abs(c.x - oppSide);
-            s -= distFromOpp;
+            int distFromHome = Math.Abs(c.x - oppSide);
+            s -= distFromHome * 100;
 
             int centerY = (rules.boardHeight - 1) / 2;
             s -= Math.Abs(c.y - centerY) * 2;
@@ -417,6 +417,23 @@ public class FastGameSimulator
             {
                 score += piece.pieceType == PieceType.OnePhase ? w.dangerOnePhase : w.dangerTwoPhase;
             }
+        }
+
+        int threatenCount = 0;
+        foreach (var d in afterDirs)
+        {
+            var next = new BoardCoord(target.x + BoardCoordUtil.Offset(d).x,
+                target.y + BoardCoordUtil.Offset(d).y);
+            if (!board.IsValidCoord(next)) continue;
+            var nextOcc = board.GetPieceAt(next);
+            if (nextOcc != null && nextOcc.owner == opponent && nextOcc.pieceType == PieceType.OnePhase)
+                threatenCount++;
+        }
+        if (threatenCount > 0)
+        {
+            float bonus = threatenCount * 50000f;
+            if (threatenCount >= 2) bonus *= 3f;
+            score += bonus;
         }
 
         var friendlyPieces = board.GetPiecesOf(piece.owner);
