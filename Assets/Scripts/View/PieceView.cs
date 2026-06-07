@@ -186,31 +186,18 @@ public class PieceView : MonoBehaviour
     private void ShowFlipIndicator()
     {
         if (pieceModel == null) return;
-        Vector3 offset = transform.right * 3.5f;
-        float scaleMultiplier = 2f;
+        Vector3 dirToTerritory = pieceModel.owner == PlayerSide.Player1 ? Vector3.left : Vector3.right;
+        Vector3 offset = dirToTerritory * 3f;
 
         flipIndicator = new GameObject("FlipIndicator");
         flipIndicator.transform.SetParent(transform.parent, false);
         flipIndicator.transform.position = transform.position + offset;
-        flipIndicator.transform.localScale = Vector3.one * scaleMultiplier;
 
         var dirs = pieceModel.GetOppositeFaceDirections();
         if (dirs == null) return;
 
-        var bg = new GameObject("IndicatorBg");
-        bg.transform.SetParent(flipIndicator.transform, false);
-        var bgSr = bg.AddComponent<SpriteRenderer>();
-        if (SpriteCache.Arrow != null)
-            bgSr.sprite = SpriteCache.Arrow;
-        else
-            bgSr.sprite = CreateArrowSprite();
-        bgSr.color = new Color(0, 0, 0, 0.3f);
-        bgSr.sortingOrder = 5;
-        bg.transform.localScale = Vector3.one * 3f;
-        bg.transform.localRotation = Quaternion.Euler(0, 0, 45);
-
-        float distance = 1.1f;
-        float arrowSize = 1.5f;
+        float distance = 0.8f;
+        float arrowSize = 0.65f;
         foreach (var dir in dirs)
         {
             var arrow = new GameObject("IndicatorArrow_" + dir);

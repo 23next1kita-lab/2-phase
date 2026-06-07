@@ -43,14 +43,27 @@ public class UIManager : MonoBehaviour
             canvasObj.AddComponent<GraphicRaycaster>();
         }
 
+        bool mobile = Application.isMobilePlatform;
         if (turnText == null)
-            turnText = CreateText("TurnText", cachedCanvas.gameObject, new Vector2(-300, 200), "Turn: 1 - Player1", 20);
+        {
+            turnText = CreateText("TurnText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 280) : new Vector2(-300, 200), "Turn: 1 - Player1", mobile ? 30 : 20);
+            if (mobile) turnText.fontStyle = FontStyle.Bold;
+        }
         if (movesRemainingText == null)
-            movesRemainingText = CreateText("MovesText", cachedCanvas.gameObject, new Vector2(-300, 170), "Moves left: 0", 18);
+        {
+            movesRemainingText = CreateText("MovesText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 240) : new Vector2(-300, 170), "Moves left: 0", mobile ? 27 : 18);
+            if (mobile) movesRemainingText.fontStyle = FontStyle.Bold;
+        }
         if (phaseText == null)
-            phaseText = CreateText("PhaseText", cachedCanvas.gameObject, new Vector2(-300, 140), "Phase: Select a piece", 16);
+        {
+            phaseText = CreateText("PhaseText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 200) : new Vector2(-300, 140), "Phase: Select a piece", mobile ? 24 : 16);
+            if (mobile) phaseText.fontStyle = FontStyle.Bold;
+        }
         if (timerText == null)
-            timerText = CreateText("TimerText", cachedCanvas.gameObject, new Vector2(300, 200), "", 18);
+        {
+            timerText = CreateText("TimerText", cachedCanvas.gameObject, mobile ? new Vector2(450, 280) : new Vector2(300, 200), "", mobile ? 27 : 18);
+            if (mobile) timerText.fontStyle = FontStyle.Bold;
+        }
         if (messageText == null)
         {
             messageText = CreateText("MessageText", cachedCanvas.gameObject, new Vector2(0, 250), "", 18);
@@ -67,7 +80,7 @@ public class UIManager : MonoBehaviour
 
         if (homeButton == null)
         {
-            homeButton = CreateGameButton("HomeButton", "Home", new Vector2(350, 200), () => ShowHomeConfirm());
+            homeButton = CreateGameButton("HomeButton", "Home", mobile ? new Vector2(450, 250) : new Vector2(350, 200), () => ShowHomeConfirm());
         }
 
         if (confirmHomePanel == null)
