@@ -12,6 +12,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     private GameObject lobbyPanel;
     private InputField roomNameInput;
     private bool returningToHome;
+    private GameObject waitingText;
 
     public System.Action OnConnected;
 
@@ -70,6 +71,11 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
         GameObject textArea = new GameObject("Text", typeof(RectTransform));
         textArea.transform.SetParent(inputObj.transform, false);
+        RectTransform textAreaRt = textArea.GetComponent<RectTransform>();
+        textAreaRt.anchorMin = Vector2.zero;
+        textAreaRt.anchorMax = Vector2.one;
+        textAreaRt.offsetMin = new Vector2(5, 5);
+        textAreaRt.offsetMax = new Vector2(-5, -5);
         Text inputText = textArea.AddComponent<Text>();
         inputText.fontSize = 20;
         inputText.color = Color.black;
@@ -143,6 +149,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (result.Ok)
         {
             Destroy(lobbyPanel);
+            ShowWaitingText("参加者待ち...");
             var gm = FindObjectOfType<GameManager>();
             gm.IsHost = true;
             var handler = FindObjectOfType<NetworkGameHandler>();
@@ -175,10 +182,30 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (result.Ok)
         {
             Destroy(lobbyPanel);
+            ShowWaitingText("参加しました！");
             var gm = FindObjectOfType<GameManager>();
             gm.IsHost = false;
             OnConnected?.Invoke();
         }
+    }
+
+    private void ShowWaitingText(string msg)
+    {
+        Canvas canvas = FindObjectOfType<Canvas>();
+        if (canvas == null) return;
+
+        waitingText = new GameObject("WaitingText", typeof(RectTransform));
+        waitingText.transform.SetParent(canvas.transform, false);
+        var rt = waitingText.AddComponent<RectTransform>();
+        rt.anchoredPosition = Vector2.zero;
+        rt.sizeDelta = new Vector2(400, 80);
+        var txt = waitingText.AddComponent<Text>();
+        txt.text = msg;
+        txt.fontSize = 32;
+        txt.color = Color.white;
+        txt.alignment = TextAnchor.MiddleCenter;
+        txt.font = FontProvider.GetFont();
+        txt.fontStyle = FontStyle.Bold;
     }
 
     private void ReturnToHome()
@@ -201,7 +228,19 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     }
 
     // INetworkRunnerCallbacks
-    void INetworkRunnerCallbacks.OnPlayerJoined(NetworkRunner runner, PlayerRef player) { }
+    void INetworkRunnerCallbacks.OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    {
+        if (player != runner.LocalPlayer)
+        {
+            if (waitingText != null)
+            {
+                var txt = waitingText.GetComponent<Text>();
+                if (txt != null) txt.text = "参加しました！";
+                Destroy(waitingText, 2f);
+                waitingText = null;
+            }
+        }
+    }
     void INetworkRunnerCallbacks.OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
         if (player != runner.LocalPlayer && !returningToHome)

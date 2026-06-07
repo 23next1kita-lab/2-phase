@@ -46,22 +46,22 @@ public class UIManager : MonoBehaviour
         bool mobile = Application.isMobilePlatform;
         if (turnText == null)
         {
-            turnText = CreateText("TurnText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 220) : new Vector2(-300, 200), "Turn: 1 - Player1", mobile ? 30 : 20);
+            turnText = CreateText("TurnText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 150) : new Vector2(-300, 200), "Turn: 1 - Player1", mobile ? 30 : 20);
             if (mobile) turnText.fontStyle = FontStyle.Bold;
         }
         if (movesRemainingText == null)
         {
-            movesRemainingText = CreateText("MovesText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 185) : new Vector2(-300, 170), "Moves left: 0", mobile ? 27 : 18);
+            movesRemainingText = CreateText("MovesText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 115) : new Vector2(-300, 170), "Moves left: 0", mobile ? 27 : 18);
             if (mobile) movesRemainingText.fontStyle = FontStyle.Bold;
         }
         if (phaseText == null)
         {
-            phaseText = CreateText("PhaseText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 150) : new Vector2(-300, 140), "Phase: Select a piece", mobile ? 24 : 16);
+            phaseText = CreateText("PhaseText", cachedCanvas.gameObject, mobile ? new Vector2(-450, 80) : new Vector2(-300, 140), "Phase: Select a piece", mobile ? 24 : 16);
             if (mobile) phaseText.fontStyle = FontStyle.Bold;
         }
         if (timerText == null)
         {
-            timerText = CreateText("TimerText", cachedCanvas.gameObject, mobile ? new Vector2(350, 220) : new Vector2(300, 200), "", mobile ? 27 : 18);
+            timerText = CreateText("TimerText", cachedCanvas.gameObject, mobile ? new Vector2(350, 150) : new Vector2(300, 200), "", mobile ? 27 : 18);
             if (mobile) timerText.fontStyle = FontStyle.Bold;
         }
         if (messageText == null)
@@ -237,6 +237,15 @@ public class UIManager : MonoBehaviour
         if (messageText != null)
         {
             messageText.text = "駒を載せてください\n（クリックで回転）";
+            if (Application.isMobilePlatform)
+            {
+                messageText.fontSize = 26;
+                messageText.fontStyle = FontStyle.Bold;
+                messageText.color = Color.white;
+                var rt = messageText.GetComponent<RectTransform>();
+                rt.anchoredPosition = new Vector2(0, 100);
+                rt.sizeDelta = new Vector2(500, 80);
+            }
             messageText.gameObject.SetActive(true);
         }
     }
