@@ -7,6 +7,7 @@ public static class BuildWebGL
     public static void Build()
     {
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
+        PlayerSettings.WebGL.decompressionFallback = true;
         var scenes = new[] { "Assets/Scenes/SampleScene.unity" };
         var options = new BuildPlayerOptions
         {
