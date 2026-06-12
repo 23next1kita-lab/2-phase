@@ -133,6 +133,9 @@ public class GameManager : MonoBehaviour
         LocalPlayerSide = PlayerSide.Player1;
         IsWaitingForOnlinePlayer = false;
 
+        var oldNm = GetComponent<NetworkManager>();
+        if (oldNm != null) Destroy(oldNm);
+
         playMode = mode;
         CpuLevel = cpuLevel;
 
