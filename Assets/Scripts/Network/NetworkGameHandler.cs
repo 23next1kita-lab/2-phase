@@ -22,8 +22,14 @@ public class NetworkGameHandler : NetworkBehaviour
     {
         if (gm == null)
             gm = FindObjectOfType<GameManager>();
+        if (gm != null)
+            gm.IsHost = HasStateAuthority;
+    }
 
-        gm.IsHost = HasStateAuthority;
+    public void SetupOnlineSync()
+    {
+        if (gm == null) gm = FindObjectOfType<GameManager>();
+        if (gm == null) return;
 
         var clickHandler = FindObjectOfType<ClickHandler>();
         if (clickHandler != null)

@@ -129,17 +129,24 @@ public class GameManager : MonoBehaviour
             Destroy(cpu);
         }
 
+        IsHost = false;
+        LocalPlayerSide = PlayerSide.Player1;
+        IsWaitingForOnlinePlayer = false;
+
         playMode = mode;
         CpuLevel = cpuLevel;
-        InitializeGame();
 
         if (mode == PlayMode.Online)
         {
             var nm = gameObject.AddComponent<NetworkManager>();
             nm.OnConnected += OnNetworkConnected;
             nm.ShowLobby();
+            return;
         }
-        else if (mode == PlayMode.CPU)
+
+        InitializeGame();
+
+        if (mode == PlayMode.CPU)
         {
             var cpu = gameObject.AddComponent<CpuPlayer>();
             cpu.DifficultyLevel = cpuLevel;

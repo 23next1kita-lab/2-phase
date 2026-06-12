@@ -12,7 +12,10 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     private GameObject lobbyPanel;
     private InputField roomNameInput;
     private bool returningToHome;
-    private GameObject waitingText;
+    private bool gameStarting;
+    private GameObject waitingPanel;
+    private Text waitingMessage;
+    private GameObject backButton;
 
     public System.Action OnConnected;
 
@@ -149,13 +152,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (result.Ok)
         {
             Destroy(lobbyPanel);
-            ShowWaitingText("参加者待ち...");
-            var gm = FindObjectOfType<GameManager>();
-            gm.IsHost = true;
-            gm.IsWaitingForOnlinePlayer = true;
-            var handler = FindObjectOfType<NetworkGameHandler>();
-            if (handler != null) handler.Init(gm, true);
-            OnConnected?.Invoke();
+            ShowWaitingPanel();
         }
     }
 
@@ -183,72 +180,194 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (result.Ok)
         {
             Destroy(lobbyPanel);
-            ShowWaitingText("参加しました！");
-            var gm = FindObjectOfType<GameManager>();
-            gm.IsHost = false;
-            gm.IsWaitingForOnlinePlayer = false;
-            OnConnected?.Invoke();
+            ShowJoinedPanel();
+            if (!gameStarting)
+            {
+                gameStarting = true;
+                Invoke(nameof(DelayedGameStart), 3f);
+            }
         }
     }
 
-    private void ShowWaitingText(string msg)
+    private void ShowWaitingPanel()
     {
         Canvas canvas = FindObjectOfType<Canvas>();
-        if (canvas == null) return;
+        if (canvas == null)
+        {
+            GameObject canvasObj = new GameObject("WaitingCanvas", typeof(RectTransform));
+            canvas = canvasObj.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvasObj.AddComponent<CanvasScaler>();
+            canvasObj.AddComponent<GraphicRaycaster>();
+        }
 
-        waitingText = new GameObject("WaitingText", typeof(RectTransform));
-        waitingText.transform.SetParent(canvas.transform, false);
-        var rt = waitingText.AddComponent<RectTransform>();
-        rt.anchoredPosition = Vector2.zero;
-        rt.sizeDelta = new Vector2(400, 80);
-        var txt = waitingText.AddComponent<Text>();
-        txt.text = msg;
-        txt.fontSize = 32;
-        txt.color = Color.white;
-        txt.alignment = TextAnchor.MiddleCenter;
-        txt.font = FontProvider.GetFont();
-        txt.fontStyle = FontStyle.Bold;
+        waitingPanel = new GameObject("WaitingPanel", typeof(RectTransform));
+        waitingPanel.transform.SetParent(canvas.transform, false);
+
+        RectTransform panelRt = waitingPanel.GetComponent<RectTransform>();
+        panelRt.anchorMin = Vector2.zero;
+        panelRt.anchorMax = Vector2.one;
+        panelRt.sizeDelta = Vector2.zero;
+
+        Image bg = waitingPanel.AddComponent<Image>();
+        bg.color = new Color(0, 0, 0, 0.85f);
+
+        GameObject msgObj = new GameObject("Message", typeof(RectTransform));
+        msgObj.transform.SetParent(waitingPanel.transform, false);
+        RectTransform msgRt = msgObj.GetComponent<RectTransform>();
+        msgRt.anchoredPosition = Vector2.zero;
+        msgRt.sizeDelta = new Vector2(400, 80);
+        waitingMessage = msgObj.AddComponent<Text>();
+        waitingMessage.text = "参加者待ち...";
+        waitingMessage.fontSize = 36;
+        waitingMessage.color = Color.white;
+        waitingMessage.alignment = TextAnchor.MiddleCenter;
+        waitingMessage.font = FontProvider.GetFont();
+        waitingMessage.fontStyle = FontStyle.Bold;
+
+        GameObject btnObj = new GameObject("BackButton", typeof(RectTransform));
+        btnObj.transform.SetParent(waitingPanel.transform, false);
+        RectTransform btnRt = btnObj.GetComponent<RectTransform>();
+        btnRt.anchoredPosition = new Vector2(0, -120);
+        btnRt.sizeDelta = new Vector2(280, 60);
+        Image btnImg = btnObj.AddComponent<Image>();
+        btnImg.color = new Color(0.6f, 0.2f, 0.2f, 0.9f);
+        GameObject btnTxtObj = new GameObject("Text", typeof(RectTransform));
+        btnTxtObj.transform.SetParent(btnObj.transform, false);
+        RectTransform btnTxtRt = btnTxtObj.GetComponent<RectTransform>();
+        btnTxtRt.sizeDelta = new Vector2(280, 60);
+        btnTxtRt.anchoredPosition = Vector2.zero;
+        Text btnTxt = btnTxtObj.AddComponent<Text>();
+        btnTxt.text = "ホームに戻る";
+        btnTxt.fontSize = 24;
+        btnTxt.color = Color.white;
+        btnTxt.alignment = TextAnchor.MiddleCenter;
+        btnTxt.font = FontProvider.GetFont();
+        Button btn = btnObj.AddComponent<Button>();
+        btn.targetGraphic = btnImg;
+        btn.onClick.AddListener(CancelWaiting);
+        backButton = btnObj;
     }
 
-    private void ReturnToHome()
+    private void ShowJoinedPanel()
+    {
+        Canvas canvas = FindObjectOfType<Canvas>();
+        if (canvas == null)
+        {
+            GameObject canvasObj = new GameObject("WaitingCanvas", typeof(RectTransform));
+            canvas = canvasObj.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvasObj.AddComponent<CanvasScaler>();
+            canvasObj.AddComponent<GraphicRaycaster>();
+        }
+
+        waitingPanel = new GameObject("JoinedPanel", typeof(RectTransform));
+        waitingPanel.transform.SetParent(canvas.transform, false);
+
+        RectTransform panelRt = waitingPanel.GetComponent<RectTransform>();
+        panelRt.anchorMin = Vector2.zero;
+        panelRt.anchorMax = Vector2.one;
+        panelRt.sizeDelta = Vector2.zero;
+
+        Image bg = waitingPanel.AddComponent<Image>();
+        bg.color = new Color(0, 0, 0, 0.85f);
+
+        GameObject msgObj = new GameObject("Message", typeof(RectTransform));
+        msgObj.transform.SetParent(waitingPanel.transform, false);
+        RectTransform msgRt = msgObj.GetComponent<RectTransform>();
+        msgRt.anchoredPosition = Vector2.zero;
+        msgRt.sizeDelta = new Vector2(400, 80);
+        waitingMessage = msgObj.AddComponent<Text>();
+        waitingMessage.text = "参加しました！";
+        waitingMessage.fontSize = 36;
+        waitingMessage.color = Color.white;
+        waitingMessage.alignment = TextAnchor.MiddleCenter;
+        waitingMessage.font = FontProvider.GetFont();
+        waitingMessage.fontStyle = FontStyle.Bold;
+    }
+
+    private void DelayedGameStart()
+    {
+        if (returningToHome) return;
+        gameStarting = false;
+
+        if (waitingPanel != null)
+            DestroyImmediate(waitingPanel);
+
+        var gm = FindObjectOfType<GameManager>();
+        if (gm == null) return;
+
+        gm.InitializeGame();
+
+        var handler = FindObjectOfType<NetworkGameHandler>();
+        if (handler != null)
+            handler.SetupOnlineSync();
+
+        OnConnected?.Invoke();
+    }
+
+    private void CancelWaiting()
     {
         if (returningToHome) return;
         returningToHome = true;
 
-        if (runner != null)
-            runner.RemoveCallbacks(this);
+        CancelInvoke(nameof(DelayedGameStart));
+
+        if (waitingPanel != null)
+            Destroy(waitingPanel);
+
+        var handler = FindObjectOfType<NetworkGameHandler>();
+        if (handler != null) Destroy(handler);
+
+        Destroy(this);
+
+        var menuObj = new GameObject("MainMenuUI");
+        menuObj.AddComponent<MainMenuUI>();
+    }
+
+    private void HandleDisconnect()
+    {
+        if (returningToHome) return;
+        returningToHome = true;
+
+        CancelInvoke(nameof(DelayedGameStart));
+
+        if (waitingPanel != null)
+            DestroyImmediate(waitingPanel);
 
         var ui = FindObjectOfType<UIManager>();
         if (ui != null)
-            ui.OnReturnToHome();
-        else
         {
-            Destroy(gameObject);
-            var menuObj = new GameObject("MainMenuUI");
-            menuObj.AddComponent<MainMenuUI>();
+            ui.OnReturnToHome();
+            return;
         }
+
+        var handler = FindObjectOfType<NetworkGameHandler>();
+        if (handler != null) Destroy(handler);
+
+        Destroy(this);
+
+        var menuObj = new GameObject("MainMenuUI");
+        menuObj.AddComponent<MainMenuUI>();
     }
 
     // INetworkRunnerCallbacks
     void INetworkRunnerCallbacks.OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        if (player != runner.LocalPlayer)
+        if (player != runner.LocalPlayer && !gameStarting)
         {
-            var gm = FindObjectOfType<GameManager>();
-            if (gm != null) gm.IsWaitingForOnlinePlayer = false;
-            if (waitingText != null)
-            {
-                var txt = waitingText.GetComponent<Text>();
-                if (txt != null) txt.text = "参加しました！";
-                Destroy(waitingText, 2f);
-                waitingText = null;
-            }
+            gameStarting = true;
+            if (waitingMessage != null)
+                waitingMessage.text = "参加しました！";
+            if (backButton != null)
+                backButton.SetActive(false);
+            Invoke(nameof(DelayedGameStart), 3f);
         }
     }
     void INetworkRunnerCallbacks.OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
         if (player != runner.LocalPlayer && !returningToHome)
-            Invoke(nameof(ReturnToHome), 0.1f);
+            HandleDisconnect();
     }
     void INetworkRunnerCallbacks.OnInput(NetworkRunner runner, NetworkInput input) { }
     void INetworkRunnerCallbacks.OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
@@ -257,7 +376,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     void INetworkRunnerCallbacks.OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
     {
         if (!returningToHome)
-            Invoke(nameof(ReturnToHome), 0.1f);
+            HandleDisconnect();
     }
     void INetworkRunnerCallbacks.OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
     void INetworkRunnerCallbacks.OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }

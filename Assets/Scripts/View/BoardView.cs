@@ -117,7 +117,7 @@ public class BoardView : MonoBehaviour
 
         float camSize = Mathf.Max(gameManager.GameRules.boardWidth, gameManager.GameRules.boardHeight) * 0.6f + 1f;
         if (Application.isMobilePlatform)
-            camSize *= 0.95f;
+            camSize *= 0.92f;
         if (Camera.main != null)
             Camera.main.orthographicSize = camSize;
     }
