@@ -117,6 +117,14 @@ public class NetworkGameHandler : NetworkBehaviour
     }
 
     [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+    public void RPC_ClientReady()
+    {
+        if (!HasStateAuthority) return;
+        var nm = FindObjectOfType<NetworkManager>();
+        if (nm != null) nm.OnRemoteClientReady();
+    }
+
+    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
     public void RPC_FinishClientSplitPlacement(string placementDataJson)
     {
         if (!HasStateAuthority) return;
@@ -244,10 +252,16 @@ public class NetworkGameHandler : NetworkBehaviour
         SyncState();
     }
 
+    public void Cleanup()
+    {
+        if (gm != null)
+            gm.OnGameStateChanged -= SyncState;
+        gm = null;
+    }
+
     private void OnDestroy()
     {
-        if (gm != null && HasStateAuthority)
-            gm.OnGameStateChanged -= SyncState;
+        Cleanup();
     }
 
     private string StringifyDirections(List<Direction> dirs)

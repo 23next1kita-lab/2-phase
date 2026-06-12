@@ -136,6 +136,9 @@ public class GameManager : MonoBehaviour
         var oldNm = GetComponent<NetworkManager>();
         if (oldNm != null) Destroy(oldNm);
 
+        var handler = GetComponent<NetworkGameHandler>();
+        if (handler != null) handler.Cleanup();
+
         playMode = mode;
         CpuLevel = cpuLevel;
 

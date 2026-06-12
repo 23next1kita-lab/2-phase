@@ -301,7 +301,11 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
         var handler = FindObjectOfType<NetworkGameHandler>();
         if (handler != null)
+        {
             handler.SetupOnlineSync();
+            if (!handler.HasStateAuthority)
+                handler.RPC_ClientReady();
+        }
 
         OnConnected?.Invoke();
     }
@@ -317,12 +321,24 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
             Destroy(waitingPanel);
 
         var handler = FindObjectOfType<NetworkGameHandler>();
-        if (handler != null) Destroy(handler);
+        if (handler != null) handler.Cleanup();
 
         Destroy(this);
 
         var menuObj = new GameObject("MainMenuUI");
         menuObj.AddComponent<MainMenuUI>();
+    }
+
+    public void OnRemoteClientReady()
+    {
+        if (!gameStarting && waitingMessage != null)
+        {
+            gameStarting = true;
+            waitingMessage.text = "参加しました！";
+            if (backButton != null)
+                backButton.SetActive(false);
+            Invoke(nameof(DelayedGameStart), 3f);
+        }
     }
 
     private void HandleDisconnect()
@@ -343,7 +359,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         }
 
         var handler = FindObjectOfType<NetworkGameHandler>();
-        if (handler != null) Destroy(handler);
+        if (handler != null) handler.Cleanup();
 
         Destroy(this);
 
