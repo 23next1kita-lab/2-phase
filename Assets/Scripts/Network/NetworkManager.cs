@@ -367,6 +367,26 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         menuObj.AddComponent<MainMenuUI>();
     }
 
+    private void Update()
+    {
+        if (returningToHome || gameStarting || waitingPanel == null || runner == null || !runner.IsRunning)
+            return;
+
+        int count = 0;
+        foreach (var p in runner.ActivePlayers)
+            count++;
+
+        if (count >= 2)
+        {
+            gameStarting = true;
+            if (waitingMessage != null)
+                waitingMessage.text = "参加しました！";
+            if (backButton != null)
+                backButton.SetActive(false);
+            Invoke(nameof(DelayedGameStart), 3f);
+        }
+    }
+
     // INetworkRunnerCallbacks
     void INetworkRunnerCallbacks.OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {

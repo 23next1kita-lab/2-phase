@@ -46,34 +46,34 @@ public class UIManager : MonoBehaviour
         bool mobile = Application.isMobilePlatform;
         if (turnText == null)
         {
-            turnText = CreateText("TurnText", cachedCanvas.gameObject, mobile ? new Vector2(-550, 140) : new Vector2(-300, 170), "Turn: 1 - Player1", mobile ? 30 : 20);
+            turnText = CreateText("TurnText", cachedCanvas.gameObject, mobile ? new Vector2(-550, 110) : new Vector2(-300, 170), "Turn: 1 - Player1", mobile ? 30 : 20);
             if (mobile)
             {
                 turnText.fontStyle = FontStyle.Bold;
                 var rt = turnText.GetComponent<RectTransform>();
-                rt.anchoredPosition = new Vector2(-550, 140);
+                rt.anchoredPosition = new Vector2(-550, 110);
                 rt.sizeDelta = new Vector2(400, 35);
             }
         }
         if (movesRemainingText == null)
         {
-            movesRemainingText = CreateText("MovesText", cachedCanvas.gameObject, mobile ? new Vector2(-550, 110) : new Vector2(-300, 140), "Moves left: 0", mobile ? 27 : 18);
+            movesRemainingText = CreateText("MovesText", cachedCanvas.gameObject, mobile ? new Vector2(-550, 80) : new Vector2(-300, 140), "Moves left: 0", mobile ? 27 : 18);
             if (mobile)
             {
                 movesRemainingText.fontStyle = FontStyle.Bold;
                 var rt = movesRemainingText.GetComponent<RectTransform>();
-                rt.anchoredPosition = new Vector2(-550, 110);
+                rt.anchoredPosition = new Vector2(-550, 80);
                 rt.sizeDelta = new Vector2(400, 35);
             }
         }
         if (phaseText == null)
         {
-            phaseText = CreateText("PhaseText", cachedCanvas.gameObject, mobile ? new Vector2(-550, 80) : new Vector2(-300, 110), "Phase: Select a piece", mobile ? 24 : 16);
+            phaseText = CreateText("PhaseText", cachedCanvas.gameObject, mobile ? new Vector2(-550, 50) : new Vector2(-300, 110), "Phase: Select a piece", mobile ? 24 : 16);
             if (mobile)
             {
                 phaseText.fontStyle = FontStyle.Bold;
                 var rt = phaseText.GetComponent<RectTransform>();
-                rt.anchoredPosition = new Vector2(-550, 80);
+                rt.anchoredPosition = new Vector2(-550, 50);
                 rt.sizeDelta = new Vector2(400, 35);
             }
         }
@@ -86,7 +86,7 @@ public class UIManager : MonoBehaviour
                 var rt = timerText.GetComponent<RectTransform>();
                 rt.anchorMin = new Vector2(0.5f, 0.5f);
                 rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2(400, 110);
+                rt.anchoredPosition = new Vector2(550, 80);
                 rt.sizeDelta = new Vector2(400, 30);
             }
             timerText.alignment = TextAnchor.MiddleCenter;
