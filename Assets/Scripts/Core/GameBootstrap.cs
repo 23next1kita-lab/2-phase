@@ -15,7 +15,7 @@ public class GameBootstrap : MonoBehaviour
 
     private void Awake()
     {
-        if (FindObjectsByType<GameBootstrap>(FindObjectsSortMode.None).Length > 1)
+        if (FindObjectsByType<GameBootstrap>().Length > 1)
         {
             Destroy(gameObject);
             return;
