@@ -8,7 +8,7 @@ public class GameBootstrap : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void AutoCreate()
     {
-        if (FindObjectOfType<GameBootstrap>() != null) return;
+        if (FindFirstObjectByType<GameBootstrap>() != null) return;
         var obj = new GameObject("GameBootstrap");
         obj.AddComponent<GameBootstrap>();
     }
@@ -26,7 +26,7 @@ public class GameBootstrap : MonoBehaviour
 
     private void Start()
     {
-        var gm = FindObjectOfType<GameManager>();
+        var gm = FindFirstObjectByType<GameManager>();
         if (gm == null)
         {
             GameObject gmObj = new GameObject("GameManager");

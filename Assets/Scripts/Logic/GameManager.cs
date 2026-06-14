@@ -62,7 +62,7 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
-        if (FindObjectOfType<AudioManager>() == null)
+        if (FindFirstObjectByType<AudioManager>() == null)
         {
             var audioObj = new GameObject("AudioManager");
             audioObj.AddComponent<AudioManager>();
@@ -78,7 +78,7 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        if (FindObjectOfType<MainMenuUI>() == null)
+        if (FindFirstObjectByType<MainMenuUI>() == null)
         {
             var menuObj = new GameObject("MainMenuUI");
             menuObj.AddComponent<MainMenuUI>();
@@ -178,14 +178,14 @@ public class GameManager : MonoBehaviour
 
     private void OnNetworkConnected()
     {
-        var handler = FindObjectOfType<NetworkGameHandler>();
+        var handler = FindFirstObjectByType<NetworkGameHandler>();
         if (handler != null)
         {
             IsHost = handler.HasStateAuthority;
             LocalPlayerSide = IsHost ? PlayerSide.Player1 : PlayerSide.Player2;
             if (!IsHost)
             {
-                var clickHandler = FindObjectOfType<ClickHandler>();
+                var clickHandler = FindFirstObjectByType<ClickHandler>();
                 if (clickHandler != null)
                     clickHandler.networkHandler = handler;
             }
@@ -217,10 +217,10 @@ public class GameManager : MonoBehaviour
 
         PlaceInitialPieces();
 
-        if (FindObjectOfType<ClickHandler>() == null)
+        if (FindFirstObjectByType<ClickHandler>() == null)
             gameObject.AddComponent<ClickHandler>();
 
-        boardView = FindObjectOfType<BoardView>();
+        boardView = FindFirstObjectByType<BoardView>();
         if (boardView == null)
         {
             GameObject bvObj = new GameObject("BoardView");
@@ -231,7 +231,7 @@ public class GameManager : MonoBehaviour
 
         EnsureEventSystemExists();
 
-        uiManager = FindObjectOfType<UIManager>();
+        uiManager = FindFirstObjectByType<UIManager>();
         if (uiManager == null)
         {
             GameObject uiObj = new GameObject("UIManager");
@@ -257,7 +257,7 @@ public class GameManager : MonoBehaviour
 
     private void EnsureEventSystemExists()
     {
-        if (FindObjectOfType<UnityEngine.EventSystems.EventSystem>() != null) return;
+        if (FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() != null) return;
         var es = new GameObject("EventSystem");
         es.AddComponent<UnityEngine.EventSystems.EventSystem>();
         es.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
@@ -515,7 +515,7 @@ public class GameManager : MonoBehaviour
 
                 if (playMode == PlayMode.Online && captured.owner != LocalPlayerSide)
                 {
-                    var handler = FindObjectOfType<NetworkGameHandler>();
+                    var handler = FindFirstObjectByType<NetworkGameHandler>();
                     if (handler != null)
                     {
                         var json = handler.SerializeSplitPieces(pendingSplitPieces);
@@ -705,7 +705,7 @@ public class GameManager : MonoBehaviour
     {
         if (playMode == PlayMode.Online && turnManager.CurrentPlayer != LocalPlayerSide)
         {
-            var handler = FindObjectOfType<NetworkGameHandler>();
+            var handler = FindFirstObjectByType<NetworkGameHandler>();
             if (handler != null)
             {
                 var placed = splitController.ConfirmPlacement();

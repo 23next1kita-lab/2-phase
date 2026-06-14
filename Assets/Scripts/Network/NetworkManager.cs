@@ -21,7 +21,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public async void ShowLobby()
     {
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
         if (canvas == null)
         {
             GameObject canvasObj = new GameObject("LobbyCanvas", typeof(RectTransform));
@@ -136,7 +136,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         runner.ProvideInput = true;
         runner.AddCallbacks(this);
 
-        var sceneManager = FindObjectOfType<NetworkSceneManagerDefault>();
+        var sceneManager = FindFirstObjectByType<NetworkSceneManagerDefault>();
         if (sceneManager == null)
             sceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>();
 
@@ -164,7 +164,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         runner.ProvideInput = true;
         runner.AddCallbacks(this);
 
-        var sceneManager = FindObjectOfType<NetworkSceneManagerDefault>();
+        var sceneManager = FindFirstObjectByType<NetworkSceneManagerDefault>();
         if (sceneManager == null)
             sceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>();
 
@@ -191,7 +191,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     private void ShowWaitingPanel()
     {
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
         if (canvas == null)
         {
             GameObject canvasObj = new GameObject("WaitingCanvas", typeof(RectTransform));
@@ -251,7 +251,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     private void ShowJoinedPanel()
     {
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
         if (canvas == null)
         {
             GameObject canvasObj = new GameObject("WaitingCanvas", typeof(RectTransform));
@@ -294,12 +294,12 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (waitingPanel != null)
             DestroyImmediate(waitingPanel);
 
-        var gm = FindObjectOfType<GameManager>();
+        var gm = FindFirstObjectByType<GameManager>();
         if (gm == null) return;
 
         gm.InitializeGame();
 
-        var handler = FindObjectOfType<NetworkGameHandler>();
+        var handler = FindFirstObjectByType<NetworkGameHandler>();
         if (handler != null)
         {
             handler.SetupOnlineSync();
@@ -320,7 +320,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (waitingPanel != null)
             Destroy(waitingPanel);
 
-        var handler = FindObjectOfType<NetworkGameHandler>();
+        var handler = FindFirstObjectByType<NetworkGameHandler>();
         if (handler != null) handler.Cleanup();
 
         Destroy(this);
@@ -351,14 +351,14 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (waitingPanel != null)
             DestroyImmediate(waitingPanel);
 
-        var ui = FindObjectOfType<UIManager>();
+        var ui = FindFirstObjectByType<UIManager>();
         if (ui != null)
         {
             ui.OnReturnToHome();
             return;
         }
 
-        var handler = FindObjectOfType<NetworkGameHandler>();
+        var handler = FindFirstObjectByType<NetworkGameHandler>();
         if (handler != null) handler.Cleanup();
 
         Destroy(this);

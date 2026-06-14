@@ -6,7 +6,6 @@ public class SplitPieceFloating : MonoBehaviour
     private PieceModel piece;
     private GameManager gameManager;
     private SplitPlacementController splitController;
-    private bool isDragging;
     private Vector3 dragOffset;
     private Vector3 dragStartPosition;
     private Vector3 originalPosition;
@@ -25,7 +24,6 @@ public class SplitPieceFloating : MonoBehaviour
         splitController = controller;
         transform.position = worldPos;
         originalPosition = worldPos;
-        isDragging = false;
         isOnBoard = false;
 
         Color playerColor = piece.owner == PlayerSide.Player1 ? Color.blue : Color.red;
@@ -81,7 +79,6 @@ public class SplitPieceFloating : MonoBehaviour
     void OnMouseDown()
     {
         if (Camera.main == null) return;
-        isDragging = false;
         dragStartPosition = transform.position;
 
         Vector3 mouseWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
@@ -92,7 +89,6 @@ public class SplitPieceFloating : MonoBehaviour
     void OnMouseDrag()
     {
         if (Camera.main == null) return;
-        isDragging = true;
         Vector3 mouseWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         mouseWorld.z = transform.position.z;
         transform.position = mouseWorld + dragOffset;

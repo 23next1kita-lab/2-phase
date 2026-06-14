@@ -21,7 +21,7 @@ public class CpuPlayer : MonoBehaviour
 
     private void Awake()
     {
-        gm = FindObjectOfType<GameManager>();
+        gm = FindFirstObjectByType<GameManager>();
         if (gm == null)
         {
             Debug.LogError("[CpuPlayer] GameManager not found.");

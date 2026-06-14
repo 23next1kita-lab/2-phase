@@ -21,17 +21,17 @@ public class NetworkGameHandler : NetworkBehaviour
     public override void Spawned()
     {
         if (gm == null)
-            gm = FindObjectOfType<GameManager>();
+            gm = FindFirstObjectByType<GameManager>();
         if (gm != null)
             gm.IsHost = HasStateAuthority;
     }
 
     public void SetupOnlineSync()
     {
-        if (gm == null) gm = FindObjectOfType<GameManager>();
+        if (gm == null) gm = FindFirstObjectByType<GameManager>();
         if (gm == null) return;
 
-        var clickHandler = FindObjectOfType<ClickHandler>();
+        var clickHandler = FindFirstObjectByType<ClickHandler>();
         if (clickHandler != null)
             clickHandler.networkHandler = this;
 
@@ -120,7 +120,7 @@ public class NetworkGameHandler : NetworkBehaviour
     public void RPC_ClientReady()
     {
         if (!HasStateAuthority) return;
-        var nm = FindObjectOfType<NetworkManager>();
+        var nm = FindFirstObjectByType<NetworkManager>();
         if (nm != null) nm.OnRemoteClientReady();
     }
 
@@ -161,7 +161,7 @@ public class NetworkGameHandler : NetworkBehaviour
         var data = JsonUtility.FromJson<NetworkGameState>(json);
         if (data?.pieces == null) return;
 
-        var bv = gm.BoardView ?? FindObjectOfType<BoardView>();
+        var bv = gm.BoardView ?? FindFirstObjectByType<BoardView>();
         if (bv == null) return;
 
         bv.ClearAllPieces();
@@ -183,7 +183,7 @@ public class NetworkGameHandler : NetworkBehaviour
         if ((GamePhase)NetworkedPhase == GamePhase.GameOver)
         {
             PlayerSide? winner = NetworkedWinner >= 0 ? (PlayerSide)NetworkedWinner : null;
-            var ui = FindObjectOfType<UIManager>();
+            var ui = FindFirstObjectByType<UIManager>();
             if (ui != null) ui.ShowGameOver(winner);
         }
     }
@@ -232,7 +232,7 @@ public class NetworkGameHandler : NetworkBehaviour
     public void RPC_MakeMove(string moveType, int pieceId, int targetX, int targetY, string extraData)
     {
         if (!HasStateAuthority) return;
-        if (gm == null) gm = FindObjectOfType<GameManager>();
+        if (gm == null) gm = FindFirstObjectByType<GameManager>();
 
         switch (moveType)
         {

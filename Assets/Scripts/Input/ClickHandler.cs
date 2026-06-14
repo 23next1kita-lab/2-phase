@@ -17,7 +17,7 @@ public class ClickHandler : MonoBehaviour
         var pieceView = hit.collider.GetComponent<PieceView>();
         if (pieceView != null && pieceView.PieceModel != null)
         {
-            var gm = FindObjectOfType<GameManager>();
+            var gm = FindFirstObjectByType<GameManager>();
             if (gm != null)
             {
                 if (gm.CurrentPlayMode == GameManager.PlayMode.Online && !gm.IsHost && networkHandler != null)
@@ -35,7 +35,7 @@ public class ClickHandler : MonoBehaviour
         var cellView = hit.collider.GetComponent<CellView>();
         if (cellView != null)
         {
-            var gm = FindObjectOfType<GameManager>();
+            var gm = FindFirstObjectByType<GameManager>();
             if (gm != null)
             {
                 if (gm.CurrentPlayMode == GameManager.PlayMode.Online && !gm.IsHost && networkHandler != null)

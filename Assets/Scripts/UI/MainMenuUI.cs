@@ -19,7 +19,7 @@ public class MainMenuUI : MonoBehaviour
 
     private void Start()
     {
-        gameManager = FindObjectOfType<GameManager>();
+        gameManager = FindFirstObjectByType<GameManager>();
         CreateMenu();
 
         if (AudioManager.Instance != null)
@@ -33,7 +33,7 @@ public class MainMenuUI : MonoBehaviour
 
     private void CreateMenu()
     {
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindFirstObjectByType<Canvas>();
         if (canvas == null)
         {
             GameObject canvasObj = new GameObject("MenuCanvas", typeof(RectTransform));
@@ -43,7 +43,7 @@ public class MainMenuUI : MonoBehaviour
             canvasObj.AddComponent<GraphicRaycaster>();
         }
 
-        if (FindObjectOfType<EventSystem>() == null)
+        if (FindFirstObjectByType<EventSystem>() == null)
         {
             var es = new GameObject("EventSystem", typeof(EventSystem));
             es.AddComponent<StandaloneInputModule>();
