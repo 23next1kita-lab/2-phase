@@ -13,13 +13,12 @@ public class MainMenuUI : MonoBehaviour
     private GameObject randomModePanel;
     private GameManager.PlayMode pendingPlayMode;
     private int pendingCpuLevel;
-    private bool pendingCpuVsCpu;
-    private GameObject timePanel;
+	private GameObject timePanel;
     private int pendingTimeSeconds;
 
     private void Start()
     {
-        gameManager = FindFirstObjectByType<GameManager>();
+        gameManager = FindAnyObjectByType<GameManager>();
         CreateMenu();
 
         if (AudioManager.Instance != null)
@@ -33,7 +32,7 @@ public class MainMenuUI : MonoBehaviour
 
     private void CreateMenu()
     {
-        Canvas canvas = FindFirstObjectByType<Canvas>();
+        Canvas canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null)
         {
             GameObject canvasObj = new GameObject("MenuCanvas", typeof(RectTransform));
@@ -43,7 +42,7 @@ public class MainMenuUI : MonoBehaviour
             canvasObj.AddComponent<GraphicRaycaster>();
         }
 
-        if (FindFirstObjectByType<EventSystem>() == null)
+        if (FindAnyObjectByType<EventSystem>() == null)
         {
             var es = new GameObject("EventSystem", typeof(EventSystem));
             es.AddComponent<StandaloneInputModule>();

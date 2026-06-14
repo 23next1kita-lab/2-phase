@@ -33,7 +33,7 @@ public class UIManager : MonoBehaviour
     {
         EnsureEventSystem();
 
-        cachedCanvas = FindFirstObjectByType<Canvas>();
+        cachedCanvas = FindAnyObjectByType<Canvas>();
         if (cachedCanvas == null)
         {
             GameObject canvasObj = new GameObject("GameCanvas", typeof(RectTransform));
@@ -144,7 +144,7 @@ public class UIManager : MonoBehaviour
 
     private void EnsureEventSystem()
     {
-        if (FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() != null) return;
+        if (FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>() != null) return;
         var es = new GameObject("EventSystem");
         es.AddComponent<UnityEngine.EventSystems.EventSystem>();
         es.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
@@ -414,10 +414,10 @@ public class UIManager : MonoBehaviour
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
 
-        var boardView = FindFirstObjectByType<BoardView>();
+        var boardView = FindAnyObjectByType<BoardView>();
         if (boardView != null) Destroy(boardView.gameObject);
 
-        var clickHandler = FindFirstObjectByType<ClickHandler>();
+        var clickHandler = FindAnyObjectByType<ClickHandler>();
         if (clickHandler != null) Destroy(clickHandler);
 
         if (gameManager != null)
@@ -435,7 +435,7 @@ public class UIManager : MonoBehaviour
             if (handler != null) handler.Cleanup();
         }
 
-        var canvas = FindFirstObjectByType<Canvas>();
+        var canvas = FindAnyObjectByType<Canvas>();
         if (canvas != null)
         {
             foreach (Transform child in canvas.transform)

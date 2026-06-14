@@ -7,10 +7,7 @@ public class GameManager : MonoBehaviour
 
     [SerializeField] private GameRulesSO gameRules;
     [SerializeField] private InitialPieceLayoutSO initialLayout;
-    [SerializeField] private GameObject piecePrefab;
-    [SerializeField] private GameObject boardCellPrefab;
-
-    private BoardState boardState;
+	private BoardState boardState;
     private TurnManager turnManager;
     private MoveResolver moveResolver;
     private CaptureResolver captureResolver;
@@ -20,7 +17,6 @@ public class GameManager : MonoBehaviour
 
     private PieceModel selectedPiece;
     private List<BoardCoord> legalMoves;
-    private CaptureResult pendingCaptureResult;
     private List<PieceModel> pendingSplitPieces;
     private BoardCoord lastCaptureCell;
 
@@ -62,7 +58,7 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
-        if (FindFirstObjectByType<AudioManager>() == null)
+        if (FindAnyObjectByType<AudioManager>() == null)
         {
             var audioObj = new GameObject("AudioManager");
             audioObj.AddComponent<AudioManager>();
@@ -78,7 +74,7 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        if (FindFirstObjectByType<MainMenuUI>() == null)
+        if (FindAnyObjectByType<MainMenuUI>() == null)
         {
             var menuObj = new GameObject("MainMenuUI");
             menuObj.AddComponent<MainMenuUI>();
@@ -178,14 +174,14 @@ public class GameManager : MonoBehaviour
 
     private void OnNetworkConnected()
     {
-        var handler = FindFirstObjectByType<NetworkGameHandler>();
+        var handler = FindAnyObjectByType<NetworkGameHandler>();
         if (handler != null)
         {
             IsHost = handler.HasStateAuthority;
             LocalPlayerSide = IsHost ? PlayerSide.Player1 : PlayerSide.Player2;
             if (!IsHost)
             {
-                var clickHandler = FindFirstObjectByType<ClickHandler>();
+                var clickHandler = FindAnyObjectByType<ClickHandler>();
                 if (clickHandler != null)
                     clickHandler.networkHandler = handler;
             }
@@ -217,10 +213,10 @@ public class GameManager : MonoBehaviour
 
         PlaceInitialPieces();
 
-        if (FindFirstObjectByType<ClickHandler>() == null)
+        if (FindAnyObjectByType<ClickHandler>() == null)
             gameObject.AddComponent<ClickHandler>();
 
-        boardView = FindFirstObjectByType<BoardView>();
+        boardView = FindAnyObjectByType<BoardView>();
         if (boardView == null)
         {
             GameObject bvObj = new GameObject("BoardView");
@@ -231,7 +227,7 @@ public class GameManager : MonoBehaviour
 
         EnsureEventSystemExists();
 
-        uiManager = FindFirstObjectByType<UIManager>();
+        uiManager = FindAnyObjectByType<UIManager>();
         if (uiManager == null)
         {
             GameObject uiObj = new GameObject("UIManager");
@@ -257,7 +253,7 @@ public class GameManager : MonoBehaviour
 
     private void EnsureEventSystemExists()
     {
-        if (FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() != null) return;
+        if (FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>() != null) return;
         var es = new GameObject("EventSystem");
         es.AddComponent<UnityEngine.EventSystems.EventSystem>();
         es.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
@@ -515,7 +511,7 @@ public class GameManager : MonoBehaviour
 
                 if (playMode == PlayMode.Online && captured.owner != LocalPlayerSide)
                 {
-                    var handler = FindFirstObjectByType<NetworkGameHandler>();
+                    var handler = FindAnyObjectByType<NetworkGameHandler>();
                     if (handler != null)
                     {
                         var json = handler.SerializeSplitPieces(pendingSplitPieces);
@@ -705,7 +701,7 @@ public class GameManager : MonoBehaviour
     {
         if (playMode == PlayMode.Online && turnManager.CurrentPlayer != LocalPlayerSide)
         {
-            var handler = FindFirstObjectByType<NetworkGameHandler>();
+            var handler = FindAnyObjectByType<NetworkGameHandler>();
             if (handler != null)
             {
                 var placed = splitController.ConfirmPlacement();
